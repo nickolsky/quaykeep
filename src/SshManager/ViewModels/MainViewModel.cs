@@ -68,7 +68,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         EditServerCommand = new RelayCommand(EditServer, HasServer);
         DuplicateServerCommand = new RelayCommand(DuplicateServer, HasServer);
         DeleteServerCommand = new RelayCommand(DeleteServer, HasServer);
-        CopyCommandCommand = new RelayCommand(CopyCommand, HasServer);
+        CopyToClipboardCommand = new RelayCommand(p => CopyToClipboard(p as CopyTarget), _ => SelectedServer != null);
+        PingCommand = new RelayCommand(OpenPing, () => SelectedServer != null);
         SetupKeyCommand = new RelayCommand(SetupKey, () => HasServer() && !string.IsNullOrEmpty(SelectedServer!.Entry.Password));
         TestCommand = new RelayCommand(Test, HasServer);
         RefreshInfoCommand = new RelayCommand(() => _host.RefreshServer(SelectedServer!.Entry.Id), HasServer);
@@ -157,6 +158,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<MenuEntry> InstallItems { get; } = [];
     public ObservableCollection<MenuEntry> MonitorItems { get; } = [];
     public ObservableCollection<MenuEntry> McpItems { get; } = [];
+    public ObservableCollection<MenuEntry> CopyItems { get; } = [];
 
     public TreeNode? SelectedNode
     {
@@ -266,7 +268,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand EditServerCommand { get; }
     public ICommand DuplicateServerCommand { get; }
     public ICommand DeleteServerCommand { get; }
-    public ICommand CopyCommandCommand { get; }
+    public ICommand CopyToClipboardCommand { get; }
+    public ICommand PingCommand { get; }
     public ICommand SetupKeyCommand { get; }
     public ICommand TestCommand { get; }
     public ICommand RefreshInfoCommand { get; }
@@ -620,6 +623,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         PrepareMonitorMenu();
         PrepareMcpMenu();
+        PrepareCopyMenu();
         InstallItems.Clear();
         var server = SelectedServer?.Entry;
         var scripts = _host.Vault.IsUnlocked ? _host.Vault.Data.Scripts.OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).ToList() : [];
@@ -839,11 +843,113 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool CanDelete => DeleteServerCommand.CanExecute(null) && SelectedNode is ServerNode;
 
-    private void CopyCommand()
+    /// <summary>Fills "Copy ▸": host name, IP, password, public key, ssh command, and web addresses of open ports.</summary>
+    private void PrepareCopyMenu()
     {
-        if (SelectedServer == null) return;
-        Clipboard.SetText(_host.Launcher.CommandLine(SelectedServer.Entry));
-        Status = L.Get("Main.CommandCopied");
+        CopyItems.Clear();
+        if (SelectedServer?.Entry is not { } server) return;
+        var hasKey = server.KeyId is { } k && _host.Vault.IsUnlocked && _host.Vault.Data.Keys.Any(x => x.Id == k);
+        foreach (var t in CopyTargets.For(server, hasKey, _host.Health.GetPorts(server.Id)))
+        {
+            var header = t.Kind switch
+            {
+                CopyKind.HostName => L.Get(CopyTargets.IsIp(server.Host) ? "Copy.HostNameReverse" : "Copy.HostName"),
+                CopyKind.Ip => L.Get("Copy.Ip"),
+                CopyKind.Password => L.Get("Copy.Password"),
+                CopyKind.PublicKey => L.Get("Copy.PublicKey"),
+                CopyKind.SshCommand => L.Get("Copy.SshCommand"),
+                _ => t.Url!,
+            };
+            CopyItems.Add(new MenuEntry(header, CopyToClipboardCommand, t));
+        }
+    }
+
+    private async void CopyToClipboard(CopyTarget? target)
+    {
+        if (target == null || SelectedServer?.Entry is not { } server) return;
+        var host = server.Host.Trim();
+        try
+        {
+            switch (target.Kind)
+            {
+                case CopyKind.HostName:
+                    if (await CopyTargets.ResolveHostNameAsync(host) is { } name) Copied(name);
+                    else Status = L.F("Copy.NoReverse", host);
+                    break;
+                case CopyKind.Ip:
+                    Copied(await CopyTargets.ResolveIpAsync(host));
+                    break;
+                case CopyKind.Password when !string.IsNullOrEmpty(server.Password):
+                    CopySecret(server.Password);
+                    break;
+                case CopyKind.PublicKey when _host.Vault.Data.Keys.FirstOrDefault(x => x.Id == server.KeyId) is { } key:
+                    SetClipboard(key.PublicKey.Trim());
+                    Status = L.F("Copy.PublicKeyCopied", key.Name);
+                    break;
+                case CopyKind.SshCommand:
+                    SetClipboard(_host.Launcher.CommandLine(server));
+                    Status = L.Get("Main.CommandCopied");
+                    break;
+                case CopyKind.Url when target.Url != null:
+                    Copied(target.Url);
+                    break;
+            }
+        }
+        catch (Exception ex) when (target.Kind == CopyKind.Ip)
+        {
+            Status = L.F("Copy.ResolveFailed", host, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Status = L.F("Copy.Failed", ex.Message);
+        }
+
+        void Copied(string text)
+        {
+            SetClipboard(text);
+            Status = L.F("Copy.Copied", text);
+        }
+    }
+
+    private static void SetClipboard(string text) => Clipboard.SetDataObject(new DataObject(DataFormats.UnicodeText, text), copy: true);
+
+    /// <summary>
+    /// A password: kept out of Windows clipboard history and the cloud clipboard, and cleared after 30 seconds
+    /// if the clipboard still holds it.
+    /// </summary>
+    private async void CopySecret(string secret)
+    {
+        var data = new DataObject(DataFormats.UnicodeText, secret);
+        data.SetData("ExcludeClipboardContentFromMonitorProcessing", new MemoryStream(new byte[4]));
+        data.SetData("CanIncludeInClipboardHistory", new MemoryStream(BitConverter.GetBytes(0)));
+        data.SetData("CanUploadToCloudClipboard", new MemoryStream(BitConverter.GetBytes(0)));
+        Clipboard.SetDataObject(data, copy: true);
+        Status = L.Get("Copy.PasswordCopied");
+        await Task.Delay(TimeSpan.FromSeconds(30));
+        try
+        {
+            if (Clipboard.ContainsText() && Clipboard.GetText() == secret)
+            {
+                Clipboard.Clear();
+                Status = L.Get("Copy.PasswordCleared");
+            }
+        }
+        catch (Exception)
+        {
+            // the clipboard is held by another program: leave it
+        }
+    }
+
+    private void OpenPing()
+    {
+        if (SelectedServer?.Entry is not { } server) return;
+        var existing = Application.Current.Windows.OfType<PingWindow>().FirstOrDefault(w => w.ServerId == server.Id);
+        if (existing != null)
+        {
+            existing.Activate();
+            return;
+        }
+        new PingWindow(_host, server.Clone()) { Owner = Owner }.Show();
     }
 
     private void SetupKey()

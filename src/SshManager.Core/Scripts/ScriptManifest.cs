@@ -130,7 +130,7 @@ public sealed partial class ScriptManifest
     public bool IsStale(string key, IReadOnlyDictionary<string, string> reported) =>
         !reported.ContainsKey(key) && Results.Any(r => r.IsPattern && r.Covers(key));
 
-    private static readonly string[] KnownGroups = ["VPN", "Web", "Cloud"];
+    private static readonly string[] KnownGroups = ["VPN", "Web", "Cloud", "Files"];
 
     /// <summary>Built-in groups first, in this order; the user's own after them.</summary>
     public static int GroupOrder(string group) =>
@@ -142,6 +142,7 @@ public sealed partial class ScriptManifest
         0 => L.Get("Scripts.Group.VPN"),
         1 => L.Get("Scripts.Group.Web"),
         2 => L.Get("Scripts.Group.Cloud"),
+        3 => L.Get("Scripts.Group.Files"),
         _ => group,
     };
 

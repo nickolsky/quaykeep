@@ -15,7 +15,7 @@
 #>
 param(
     [Parameter(Position = 0)][ValidateSet('up', 'down', 'reset', 'status', 'test')][string]$Command = 'status',
-    [Parameter(Position = 1)][string]$Only = '',
+    [Parameter(Position = 1)][string[]]$Only = @(), # "vless,hysteria2" arrives as an array
     [switch]$Heavy,
     [switch]$Extra
 )
@@ -57,7 +57,7 @@ switch ($Command) {
     'test' {
         $env:SSHM_LAB = (Running | ForEach-Object { "$_=127.0.0.1:$($servers[$_]):root:lab-root" }) -join ';'
         if (-not $env:SSHM_LAB) { throw 'No lab server is running: .\lab.ps1 up' }
-        $env:SSHM_LAB_ONLY = $Only
+        $env:SSHM_LAB_ONLY = $Only -join ','
         $env:SSHM_LAB_HEAVY = if ($Heavy) { '1' } else { '' }
         try {
             dotnet test "$repo\tests\SshManager.Tests" --filter 'FullyQualifiedName~LabTests' --logger 'console;verbosity=normal'

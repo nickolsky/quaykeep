@@ -472,7 +472,10 @@
                                 <ContextMenu>
                                     <MenuItem Header="{l:Tr Ctx.Connect}" Command="{Binding ConnectCommand}" FontWeight="SemiBold" Style="{StaticResource MiServer}" />
                                     <MenuItem Header="{l:Tr Ctx.Files}" Command="{Binding FilesCommand}" Style="{StaticResource MiServer}" />
-                                    <MenuItem Header="{l:Tr Ctx.Reboot}" Command="{Binding RebootCommand}" Style="{StaticResource MiServer}" />
+                                    <MenuItem Header="{l:Tr Ctx.Edit}" Command="{Binding EditServerCommand}" Style="{StaticResource MiServer}" />
+                                    <MenuItem Header="{l:Tr Ctx.Copy}" Style="{StaticResource MiServer}"
+                                              ItemsSource="{Binding CopyItems}" ItemContainerStyle="{StaticResource InstallItemLeaf}" />
+                                    <MenuItem Header="{l:Tr Ctx.Duplicate}" Command="{Binding DuplicateServerCommand}" Style="{StaticResource MiServer}" />
                                     <Separator Style="{StaticResource SepServer}" />
                                     <MenuItem Header="{l:Tr Ctx.Install}" Style="{StaticResource MiServer}"
                                               ItemsSource="{Binding InstallItems}" ItemContainerStyle="{StaticResource InstallItem}" />
@@ -482,21 +485,22 @@
                                     <MenuItem Header="{l:Tr Ctx.MonitorPort}" Command="{Binding TogglePortCommand}" FontWeight="SemiBold" Style="{StaticResource MiPortOff}" />
                                     <MenuItem Header="{l:Tr Ctx.UnmonitorPort}" Command="{Binding TogglePortCommand}" Style="{StaticResource MiPortOn}" />
                                     <MenuItem Header="{l:Tr Ctx.PortMonitor}" Command="{Binding PortMonitorCommand}" Style="{StaticResource MiPorts}" />
-                                    <MenuItem Header="{l:Tr Ctx.RefreshInfo}" Command="{Binding RefreshInfoCommand}" Style="{StaticResource MiServer}" />
-                                    <MenuItem Header="{l:Tr Ctx.CheckNow}" Command="{Binding CheckNowCommand}" Style="{StaticResource MiServer}" />
-                                    <MenuItem Header="{l:Tr Ctx.Monitoring}" Style="{StaticResource MiServer}"
-                                              ItemsSource="{Binding MonitorItems}" ItemContainerStyle="{StaticResource InstallItemLeaf}" />
+                                    <MenuItem Header="{l:Tr Ctx.SetupKey}" Command="{Binding SetupKeyCommand}" Style="{StaticResource MiServer}" />
                                     <MenuItem Header="{l:Tr Ctx.McpAccess}" Style="{StaticResource MiServer}"
                                               ItemsSource="{Binding McpItems}" ItemContainerStyle="{StaticResource InstallItemLeaf}" />
+                                    <Separator Style="{StaticResource SepServer}" />
+                                    <MenuItem Header="{l:Tr Ctx.Ping}" Command="{Binding PingCommand}" Style="{StaticResource MiServer}"
+                                              ToolTip="{l:Tr Ctx.PingTip}" />
+                                    <MenuItem Header="{l:Tr Ctx.CheckNow}" Command="{Binding CheckNowCommand}" Style="{StaticResource MiServer}"
+                                              ToolTip="{l:Tr Ctx.CheckNowTip}" />
+                                    <MenuItem Header="{l:Tr Ctx.Test}" Command="{Binding TestCommand}" Style="{StaticResource MiServer}"
+                                              ToolTip="{l:Tr Ctx.TestTip}" ToolTipService.ShowOnDisabled="True" />
+                                    <MenuItem Header="{l:Tr Ctx.RefreshInfo}" Command="{Binding RefreshInfoCommand}" Style="{StaticResource MiServer}" />
+                                    <MenuItem Header="{l:Tr Ctx.Monitoring}" Style="{StaticResource MiServer}"
+                                              ItemsSource="{Binding MonitorItems}" ItemContainerStyle="{StaticResource InstallItemLeaf}" />
                                     <MenuItem Header="{l:Tr Ctx.UptimeHistory}" Command="{Binding UptimeHistoryCommand}" Style="{StaticResource MiServer}" />
                                     <Separator Style="{StaticResource SepServer}" />
-                                    <MenuItem Header="{l:Tr Ctx.Edit}" Command="{Binding EditServerCommand}" Style="{StaticResource MiServer}" />
-                                    <MenuItem Header="{l:Tr Ctx.Duplicate}" Command="{Binding DuplicateServerCommand}" Style="{StaticResource MiServer}" />
-                                    <MenuItem Header="{l:Tr Ctx.CopyCommand}" Command="{Binding CopyCommandCommand}" Style="{StaticResource MiServer}" />
-                                    <Separator Style="{StaticResource SepServer}" />
-                                    <MenuItem Header="{l:Tr Ctx.SetupKey}" Command="{Binding SetupKeyCommand}" Style="{StaticResource MiServer}" />
-                                    <MenuItem Header="{l:Tr Ctx.Test}" Command="{Binding TestCommand}" Style="{StaticResource MiServer}" />
-                                    <Separator Style="{StaticResource SepServer}" />
+                                    <MenuItem Header="{l:Tr Ctx.Reboot}" Command="{Binding RebootCommand}" Style="{StaticResource MiServer}" />
                                     <MenuItem Header="{l:Tr Ctx.Delete}" Command="{Binding DeleteServerCommand}" Style="{StaticResource MiServer}" />
 
                                     <MenuItem Header="{l:Tr Ctx.ContainerLogs}" Command="{Binding ContainerLogsCommand}" FontWeight="SemiBold" Style="{StaticResource MiContainer}" />

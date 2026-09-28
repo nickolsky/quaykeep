@@ -56,3 +56,19 @@ internal static class OpenSsh
         return (p.ExitCode, outTask.Result.Trim(), errTask.Result.Trim());
     }
 }
+
+internal static class Bash
+{
+    /// <summary>bash -n with Git's bash, when it is installed; <paramref name="posix"/> checks it as sh.</summary>
+    public static void CheckSyntax(string script, bool posix = false)
+    {
+        var bash = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Git", "bin", "bash.exe");
+        if (!File.Exists(bash)) return;
+        var p = Process.Start(new ProcessStartInfo(bash, posix ? "--posix -n" : "-n") { RedirectStandardInput = true, RedirectStandardError = true, UseShellExecute = false })!;
+        p.StandardInput.Write(script.Replace("\r\n", "\n"));
+        p.StandardInput.Close();
+        var err = p.StandardError.ReadToEnd();
+        p.WaitForExit();
+        Assert.True(p.ExitCode == 0, err);
+    }
+}

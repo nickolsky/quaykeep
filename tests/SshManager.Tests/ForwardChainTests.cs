@@ -82,20 +82,7 @@ public class ForwardChainTests
         var e = IptablesCommands.Replace(external, [("3333cccc", "udp")], "51820", "198.51.100.8", "");
         Assert.Contains("iptables -t nat -D PREROUTING -i eth0 -p udp -m udp --dport 51820", e);
         Assert.Contains("iptables -t nat -A PREROUTING -i eth0 -p udp -m udp --dport 51820 -j DNAT --to-destination 198.51.100.7", e);
-        CheckSyntax(s);
-        CheckSyntax(e);
-    }
-
-    /// <summary>bash -n with Git's bash, when it is installed.</summary>
-    private static void CheckSyntax(string script)
-    {
-        var bash = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Git", "bin", "bash.exe");
-        if (!File.Exists(bash)) return;
-        var p = Process.Start(new ProcessStartInfo(bash, "-n") { RedirectStandardInput = true, RedirectStandardError = true, UseShellExecute = false })!;
-        p.StandardInput.Write(script.Replace("\r\n", "\n"));
-        p.StandardInput.Close();
-        var err = p.StandardError.ReadToEnd();
-        p.WaitForExit();
-        Assert.True(p.ExitCode == 0, err);
+        Bash.CheckSyntax(s);
+        Bash.CheckSyntax(e);
     }
 }

@@ -41,15 +41,17 @@ public partial class KeySetupWindow : Window
     private async void OnStart(object sender, RoutedEventArgs e)
     {
         var keyId = (KeyBox.SelectedItem as KeyChoice)?.Id;
+        var disablePassword = DisablePasswordBox.IsChecked == true;
         _running = true;
         StartButton.IsEnabled = false;
         CloseButton.IsEnabled = false;
         KeyBox.IsEnabled = false;
+        DisablePasswordBox.IsEnabled = false;
         Busy.Visibility = Visibility.Visible;
         try
         {
             var server = _server;
-            var key = await Task.Run(() => _host.KeySetup.SetupKeyAuth(server, keyId, Append));
+            var key = await Task.Run(() => _host.KeySetup.SetupKeyAuth(server, keyId, Append, disablePassword));
             Append(L.F("KeySetup.Done", key.Name, key.Fingerprint));
             StartButton.Content = L.Get("KeySetup.DoneButton");
         }
@@ -58,6 +60,7 @@ public partial class KeySetupWindow : Window
             Append(L.Get("Common.Error") + " " + ex.Message);
             StartButton.IsEnabled = true;
             KeyBox.IsEnabled = true;
+            DisablePasswordBox.IsEnabled = true;
         }
         finally
         {

@@ -314,6 +314,8 @@ public class BuiltinScriptTests
     [InlineData("nextcloud", "Cloud", "NC_URL")]
     [InlineData("seafile", "Cloud", "SF_URL")]
     [InlineData("filebrowser", "Cloud", "FB_URL")]
+    [InlineData("sftp-user", "Files", "SFTP_URL")]
+    [InlineData("vsftpd", "Files", "FTP_URL")]
     public void Ubuntu_Debian_CentOS_Builtins_Have_Metadata(string id, string group, string mainResult)
     {
         var b = BuiltinScripts.All.Single(x => x.Id == id);
@@ -359,7 +361,7 @@ public class BuiltinScriptTests
             }
         }
         Assert.Equal(["base", "services", "site"], blocks.Keys.Order());
-        Assert.True(found >= 7 + 7 + 2, $"only {found} blocks");
+        Assert.True(found >= 9 + 9 + 2, $"only {found} blocks");
     }
 
     [Fact]
@@ -430,6 +432,9 @@ public class BuiltinScriptTests
     {
         Assert.True(ScriptManifest.GroupOrder("VPN") < ScriptManifest.GroupOrder("web"));
         Assert.True(ScriptManifest.GroupOrder("Cloud") < ScriptManifest.GroupOrder("Mine"));
+        Assert.True(ScriptManifest.GroupOrder("Cloud") < ScriptManifest.GroupOrder("files"));
+        Assert.True(ScriptManifest.GroupOrder("Files") < ScriptManifest.GroupOrder("Mine"));
+        Assert.NotEqual("Files", ScriptManifest.GroupLabel("Files"));
         Assert.Equal("Mine", ScriptManifest.GroupLabel("Mine"));
         Assert.Equal("VPN", ScriptManifest.Parse("# @group VPN\necho").Group);
         Assert.Null(ScriptManifest.Parse("# @group\necho").Group);
