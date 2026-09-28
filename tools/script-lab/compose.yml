@@ -1,4 +1,4 @@
-# Test servers for SSH Manager install scripts. Start: .\lab.ps1 up   (see README.md)
+# Test servers for Quaykeep install scripts. Start: .\lab.ps1 up   (see README.md)
 # Each one runs systemd and its own Docker (/var/lib/docker and /var/lib/containerd on volumes:
 # overlayfs cannot sit on the container's own overlay), like a small VPS.
 x-lab: &lab

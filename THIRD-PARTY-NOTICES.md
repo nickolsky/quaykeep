@@ -1,6 +1,6 @@
 # Third-party components
 
-SSH Manager is released under the MIT License (see `LICENSE`). It includes or uses these components under their own licenses:
+Quaykeep is released under the MIT License (see `LICENSE`). It includes or uses these components under their own licenses:
 
 | Component | Use | License |
 |---|---|---|
@@ -14,5 +14,5 @@ SSH Manager is released under the MIT License (see `LICENSE`). It includes or us
 The built-in VLESS scripts are adapted from [vless_docker_install_scripts](https://github.com/nickolsky/vless_docker_install_scripts).
 The other install scripts download and run, on the user's server, the official images or packages of Xray, Hysteria,
 AmneziaWG, nginx, Caddy, Nextcloud, Seafile, File Browser, PostgreSQL, MariaDB and Redis; none of them are shipped with
-SSH Manager. The Amnezia VPN key format (`vpn://`) follows the [Amnezia VPN client](https://github.com/amnezia-vpn/amnezia-client).
+Quaykeep. The Amnezia VPN key format (`vpn://`) follows the [Amnezia VPN client](https://github.com/amnezia-vpn/amnezia-client).
 Icons use the Segoe Fluent Icons / Segoe MDL2 Assets fonts shipped with Windows (not redistributed).

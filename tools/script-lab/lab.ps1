@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Test servers for SSH Manager install scripts: Ubuntu 24.04, Debian 12 and CentOS Stream 9
+  Test servers for Quaykeep install scripts: Ubuntu 24.04, Debian 12 and CentOS Stream 9
   (with -Extra also Ubuntu 22.04, Debian 13 and Rocky Linux 9),
   each with systemd, sshd and its own Docker.
 
@@ -32,7 +32,7 @@ function Running {
 
 function Show-Servers {
     Write-Host ''
-    Write-Host 'Add them in SSH Manager (password login):' -ForegroundColor Cyan
+    Write-Host 'Add them in Quaykeep (password login):' -ForegroundColor Cyan
     foreach ($name in Running) {
         Write-Host ("  lab-{0,-9} 127.0.0.1 port {1}   root / lab-root   (sudo user: lab / lab-user)" -f $name, $servers[$name])
     }
@@ -60,7 +60,7 @@ switch ($Command) {
         $env:SSHM_LAB_ONLY = $Only -join ','
         $env:SSHM_LAB_HEAVY = if ($Heavy) { '1' } else { '' }
         try {
-            dotnet test "$repo\tests\SshManager.Tests" --filter 'FullyQualifiedName~LabTests' --logger 'console;verbosity=normal'
+            dotnet test "$repo\tests\Quaykeep.Tests" --filter 'FullyQualifiedName~LabTests' --logger 'console;verbosity=normal'
         }
         finally {
             Remove-Item Env:SSHM_LAB, Env:SSHM_LAB_ONLY, Env:SSHM_LAB_HEAVY -ErrorAction SilentlyContinue

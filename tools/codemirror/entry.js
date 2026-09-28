@@ -1,4 +1,4 @@
-// Bundle entry for the SSH Manager editor: CodeMirror 6 with the languages a server config needs.
+// Bundle entry for the Quaykeep editor: CodeMirror 6 with the languages a server config needs.
 import { basicSetup } from 'codemirror';
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';

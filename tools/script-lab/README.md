@@ -5,12 +5,12 @@
 ## 1. Без серверов: `dotnet test`
 
 ```powershell
-dotnet test tests\SshManager.Tests
+dotnet test tests\Quaykeep.Tests
 ```
 
 Проверяет каждый встроенный скрипт: описание и параметры читаются, значения по умолчанию проходят проверку,
 все `@result` действительно записываются, в файле нет CRLF, скрипт рассчитан на Ubuntu / Debian / CentOS.
-Синтаксис bash: `bash -n src\SshManager.Core\Scripts\Builtin\*.sh` (и `shellcheck`, если он установлен).
+Синтаксис bash: `bash -n src\Quaykeep.Core\Scripts\Builtin\*.sh` (и `shellcheck`, если он установлен).
 
 ## 2. Тестовый стенд: Ubuntu, Debian и CentOS в Docker Desktop
 
@@ -83,7 +83,7 @@ VPN-клиенты на ПК к стенду подключить не полу�
 а на CentOS — SELinux и firewalld.
 
 1. Дешёвый VPS с Ubuntu 24.04, Debian 12 или Rocky / AlmaLinux 9 (для VPN хватит 512 МБ – 1 ГБ; для Nextcloud/Seafile нужно от 2 ГБ).
-2. Добавьте его в SSH Manager, «Обновить информацию», запустите скрипт.
+2. Добавьте его в Quaykeep, «Обновить информацию», запустите скрипт.
 3. Проверьте клиентом:
    - **VLESS / Hysteria 2**: ссылку из результатов («Копировать значение») импортируйте в v2rayN, Hiddify
      или NekoBox (Windows / Android) — или отсканируйте телефоном: «Показать QR-код» у результата;

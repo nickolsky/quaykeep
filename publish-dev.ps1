@@ -1,4 +1,4 @@
-# Builds a test copy of SSH Manager into .\app-dev that runs next to the main one (.\app):
+# Builds a test copy of Quaykeep into .\app-dev that runs next to the main one (.\app):
 # own data folder (.\data-dev, a copy of .\data made on the first build), own pipes, no autostart, no auto backup.
 #   .\publish-dev.ps1              build (keeps data-dev)
 #   .\publish-dev.ps1 -ResetData   also replace data-dev with a fresh copy of data
@@ -6,15 +6,15 @@ param([switch]$ResetData)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-$running = Get-Process SshManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$PSScriptRoot\app-dev\*" }
+$running = Get-Process Quaykeep, SshManager -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$PSScriptRoot\app-dev\*" }
 if ($running) {
     Write-Host 'The test copy (app-dev) is running - exit it from its tray menu first.' -ForegroundColor Yellow
     exit 1
 }
 
-dotnet publish src/SshManager -c Release -o app-dev --nologo
+dotnet publish src/Quaykeep -c Release -o app-dev --nologo
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-dotnet publish src/sshm -c Release -o app-dev --nologo
+dotnet publish src/qk -c Release -o app-dev --nologo
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Set-Content -Path app-dev\instance.txt -Value 'dev' -Encoding ascii
 
@@ -32,4 +32,10 @@ if (-not (Test-Path data-dev\vault.dat) -and (Test-Path data\vault.dat)) {
     }
     Write-Host 'data-dev: copied from data (same servers, keys and master password)' -ForegroundColor Cyan
 }
-Write-Host "`nDone: $PSScriptRoot\app-dev\SshManager.exe" -ForegroundColor Green
+# files of SSH Manager, the name before Quaykeep; one in use (an old sshm.exe an AI agent runs) is renamed and removed later
+foreach ($f in 'SshManager.exe','SshManager.dll','SshManager.pdb','SshManager.deps.json','SshManager.runtimeconfig.json',
+                'SshManager.Core.dll','SshManager.Core.pdb','sshm.exe','sshm.dll','sshm.pdb','sshm.deps.json','sshm.runtimeconfig.json') {
+    $path = Join-Path app-dev $f
+    if (Test-Path $path) { try { Remove-Item $path -Force -ErrorAction Stop } catch { Rename-Item $path "$f.$([guid]::NewGuid().ToString('N')).sshm-old" } }
+}
+Write-Host "`nDone: $PSScriptRoot\app-dev\Quaykeep.exe" -ForegroundColor Green

@@ -1,17 +1,30 @@
-# Working on SSH Manager (for AI agents)
+# Working on Quaykeep (for AI agents)
 
 This is a Windows WPF app (.NET 10) for managing many SSH servers: an encrypted vault, one-click sessions, a built-in SSH
 agent, monitoring, install scripts and an MCP server. The user-facing docs are in [README.md](README.md) (English) and
 [README.ru.md](README.ru.md) (Russian). Keep both up to date when a feature changes.
 
+The app was called **SSH Manager** up to 1.0.1 (`SshManager.exe`, helper `sshm.exe`). Some old names are kept on purpose:
+- **On servers**, everything keeps the `sshm` name, so earlier installs, forwards and user scripts keep working:
+  - `SSHM_*` script variables;
+  - `@@sshm:` output markers;
+  - `sshm:<id>` iptables comments;
+  - `/tmp/sshm-*`, `~/.cache/sshm`;
+  - the `sshm` blocks in `sshd_config`.
+- **Locally**, the `.sshm-old` suffix and the `Local\SshManager-<user>` single-instance lock stay.
+
+Old installs and user setups are still handled: the `SSHMANAGER_*` variables and the old agent pipe (`AppPaths`), the old
+autostart entry (`Autostart`), `sshmanager-data-*` backups (`BackupService`), and the old program files
+(`UpdateService.CleanupOld`). Don't rename these.
+
 ## Layout
 
 | Path | What is there |
 |---|---|
-| `src/SshManager.Core` | All logic, with no WPF: vault and crypto, SSH.NET connections (`Ssh/`), monitoring (`Monitoring/`), inventory, iptables forwards, install scripts (`Scripts/`, built-ins in `Scripts/Builtin/*.sh`), MCP server (`Mcp/`), RU/EN strings (`Localization/Strings.cs`). |
-| `src/SshManager` | The WPF app: `Views/*.xaml`, `ViewModels/MainViewModel.cs` (server tree, context menu, commands), `Services/AppHost.cs` (wires the services together). |
-| `src/sshm` | Console helper: terminal tab, `SSH_ASKPASS`, `sshm <server>`, `sshm mcp`. |
-| `tests/SshManager.Tests` | xUnit tests: unit tests, plus `LabTests*.cs` (need the script lab) and `E2ETests` (need `SSHM_E2E`). |
+| `src/Quaykeep.Core` | All logic, with no WPF: vault and crypto, SSH.NET connections (`Ssh/`), monitoring (`Monitoring/`), inventory, iptables forwards, install scripts (`Scripts/`, built-ins in `Scripts/Builtin/*.sh`), MCP server (`Mcp/`), RU/EN strings (`Localization/Strings.cs`). |
+| `src/Quaykeep` | The WPF app: `Views/*.xaml`, `ViewModels/MainViewModel.cs` (server tree, context menu, commands), `Services/AppHost.cs` (wires the services together). |
+| `src/qk` | Console helper: terminal tab, `SSH_ASKPASS`, `qk <server>`, `qk mcp`. |
+| `tests/Quaykeep.Tests` | xUnit tests: unit tests, plus `LabTests*.cs` (need the script lab) and `E2ETests` (need `SSHM_E2E`). |
 | `tools/script-lab` | Docker lab servers (Ubuntu 24.04, Debian 12, CentOS Stream 9; `-Extra` adds more) for testing scripts over real SSH. |
 
 Put logic in Core so it can be unit-tested, and keep the UI layer thin. `CopyTargets`, `PingService` and
@@ -20,8 +33,8 @@ Put logic in Core so it can be unit-tested, and keep the UI layer thin. `CopyTar
 ## Build, test, run
 
 ```powershell
-dotnet build SSHManagement.sln
-dotnet test tests\SshManager.Tests                         # unit tests; lab tests return early without SSHM_LAB
+dotnet build Quaykeep.sln
+dotnet test tests\Quaykeep.Tests                         # unit tests; lab tests return early without SSHM_LAB
 tools\script-lab\lab.ps1 up                               # start the lab servers (Docker Desktop)
 tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some scripts; ids come from Enabled("…") in LabTests
 .\publish-dev.ps1                                         # test build in .\app-dev (own data in data-dev, runs next to the main copy)
@@ -29,7 +42,7 @@ tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some s
 
 - Try UI changes in **`app-dev`** (`publish-dev.ps1`).
 - Build the main **`app`** (`publish.ps1`) only when the user asks for it. Never build it over a running copy. First check
-  that `app\SshManager.dll` can be opened exclusively. If it is locked, ask the user to exit the app from the tray.
+  that `app\Quaykeep.dll` can be opened exclusively. If it is locked, ask the user to exit the app from the tray.
   Never kill the user's process.
 - Run `release.ps1` or create a GitHub release only when the user explicitly asks, and at most once a week. The version
   is in `Directory.Build.props`.
@@ -37,7 +50,7 @@ tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some s
 
 ## Conventions
 
-- **Localization**: every UI string is a key in `src/SshManager.Core/Localization/Strings.cs` with **both** Russian and
+- **Localization**: every UI string is a key in `src/Quaykeep.Core/Localization/Strings.cs` with **both** Russian and
   English text, and the `{0}` placeholders must match. Use `{l:Tr Key}` in XAML and `L.Get("Key")` / `L.F("Key", args)` in C#.
   `LocalizationTests` checks that the keys used in code and XAML exist.
 - **Code style**: match the surrounding code: file-scoped namespaces, primary constructors, `<summary>` comments that say
@@ -58,7 +71,7 @@ tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some s
   - Right after `systemctl reload ssh`, sshd re-executes itself, so retry connection-level failures (never failed logins)
     for a few seconds. See `KeySetupService.DisablePasswordLogin`.
 
-## Built-in install scripts (`src/SshManager.Core/Scripts/Builtin/*.sh`)
+## Built-in install scripts (`src/Quaykeep.Core/Scripts/Builtin/*.sh`)
 
 - A new `.sh` file there is embedded automatically. The header comments are its manifest: `@name` / `@name_en`, `@group`
   (VPN, Web, Cloud, Files, or a new name), `@os ubuntu,debian,centos,rhel`, `@description(_en)`, `@param`, `@result`.
@@ -81,6 +94,6 @@ tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some s
 
 ## MCP / agent safety
 
-The MCP tools (`src/SshManager.Core/Mcp`) are limited by each server's `McpAccess` level (`McpPolicy`). New tools need a
-level, an entry in the agent log, and confirmation for destructive actions. If this machine has the `sshmanager` MCP
-server connected, it runs against the user's **real** servers, so do not use it for testing. Use the lab.
+The MCP tools (`src/Quaykeep.Core/Mcp`) are limited by each server's `McpAccess` level (`McpPolicy`). New tools need a
+level, an entry in the agent log, and confirmation for destructive actions. If this machine has the `quaykeep` MCP server
+(`sshmanager` in setups from before the rename) connected, it runs against the user's **real** servers, so do not use it for testing. Use the lab.

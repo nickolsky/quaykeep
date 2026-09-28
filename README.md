@@ -1,33 +1,51 @@
-# SSH Manager
+# Quaykeep SSH Manager
 
 English | [Русский](README.ru.md)
 
-A personal Windows tool for working with lots of SSH servers:
+Quaykeep is a personal Windows tool for working with lots of SSH servers:
 servers, passwords and keys in an encrypted vault, one-click sessions, automatic switching of a server
 from password to key login, and a built-in SSH agent (like Pageant, for OpenSSH)
 that lives in the tray and starts with Windows.
 
 ## Installation
 
-Download `SshManager-X.Y.Z-win-x64.zip` from [Releases](https://github.com/nickolsky/ssh-manager/releases),
-unpack it into any folder (for example `C:\Tools\SshManager`) and run `SshManager.exe`.
+Download `Quaykeep-X.Y.Z-win-x64.zip` from [Releases](https://github.com/nickolsky/quaykeep/releases),
+unpack it into any folder (for example `C:\Tools\Quaykeep`) and run `Quaykeep.exe`.
 It needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64) and the system OpenSSH client
 (included in Windows 10/11). Data is kept in the `data` folder next to the program.
 
 **Updates**: once a day the program checks GitHub releases (Settings → Updates, which also has "Check for updates"
 and "Update and restart"). The archive is verified by SHA-256 and only program files are replaced; `data` is not touched.
-Files in use (for example `sshm.exe` in an open terminal) are renamed to `*.sshm-old` and deleted on the next start.
+Files in use (for example `qk.exe` in an open terminal) are renamed to `*.sshm-old` and deleted on the next start.
 
 ## Building from source
 
 ```powershell
-.\publish.ps1                 # build into .\app (data goes to .\data next to SSHManagement.sln)
-.\app\SshManager.exe          # first start: create the master password
+.\publish.ps1                 # build into .\app (data goes to .\data next to Quaykeep.sln)
+.\app\Quaykeep.exe            # first start: create the master password
 .\publish-dev.ps1             # a test copy in .\app-dev with its own data, runs side by side with the main one
-.\release.ps1 [-Publish]      # release artifact artifacts\SshManager-<version>-win-x64.zip (+ .sha256) and a GitHub release
+.\release.ps1 [-Publish]      # release artifact artifacts\Quaykeep-<version>-win-x64.zip (+ .sha256) and a GitHub release
 ```
 
 The version is set in `Directory.Build.props` (`<Version>`); the release tag is `v<version>`.
+
+## Upgrading from SSH Manager
+
+Quaykeep was called **SSH Manager** up to version 1.0.1 (the program `SshManager.exe`, the console helper `sshm.exe`).
+Version 1.0.1 cannot update itself to Quaykeep, so do it once by hand: exit SSH Manager from the tray, unpack the Quaykeep
+zip into the same folder and start `Quaykeep.exe`. Your `data` folder, vault and settings are used as they are; the old
+program files and the old autostart entry are removed on the first start. What you may need to redo yourself:
+
+- **AI agents**: the helper is now `qk.exe`. Register the MCP server again with the command from "Settings → AI agents
+  (MCP)" (for example `claude mcp remove sshmanager`, then `claude mcp add … quaykeep -- "…\qk.exe" mcp`).
+- **Console**: type `qk <server>` instead of `sshm <server>`.
+- **`SSH_AUTH_SOCK`**: if you pointed it at `\\.\pipe\sshmanager-agent-<user>`, that pipe keeps working; the new name is
+  `quaykeep-agent-<user>`.
+- `SSHMANAGER_DATA` / `SSHMANAGER_INSTANCE` still work; the new names are `QUAYKEEP_DATA` / `QUAYKEEP_INSTANCE`.
+- Old `sshmanager-data-*.zip` backups can still be restored and are rotated together with the new `quaykeep-data-*.zip` ones.
+
+On servers nothing changes: script variables (`SSHM_RESULT`, `SSHM_HOST`…), `/tmp/sshm-*`, `~/.cache/sshm` and the `sshm`
+markers in `sshd_config` and iptables comments keep their names, so earlier installs and forwards are still recognized.
 
 On first start the program asks you to choose a master password and offers to start with Windows
 (checked by default; can be changed in Settings). When started with Windows, the program goes straight to the tray,
@@ -74,7 +92,7 @@ On first start the program asks you to choose a master password and offers to st
   status and restart in a terminal.
 - **Scheduled jobs**: the "Cron and timers" section of a server lists the crontabs of all users, `/etc/crontab`,
   `/etc/cron.d`, the `cron.hourly…monthly` scripts and systemd timers (schedule, next run). A row's menu has
-  copy, open the file in the editor, `crontab -e` in a terminal, timer status and log. From the console: `sshm cron <server>`.
+  copy, open the file in the editor, `crontab -e` in a terminal, timer status and log. From the console: `qk cron <server>`.
 - **Reboot**: the "Reboot" button (and the server menu item) after a confirmation; the program waits for the server to
   come back and says in the tray how many seconds it took (or that it did not come back within 10 minutes).
 - **Region**: country and city by IP (the online service ipwho.is, ip-api.com as a fallback; cached for 30 days, can be turned off).
@@ -113,7 +131,7 @@ On first start the program asks you to choose a master password and offers to st
   on test servers: [tools/script-lab](tools/script-lab/README.md).
 - **Backup**: a zip of the whole `data` folder to a local folder or to a server over SFTP, rotation, automatic backup every
   N hours, a "Back up now" button. **Restore**: "Restore from backup…" (Settings → Backup
-  or the "File" menu): the latest backup from the folder / server or any `sshmanager-data-*.zip`; it needs the master password
+  or the "File" menu): the latest backup from the folder / server or any `quaykeep-data-*.zip`; it needs the master password
   as of the backup; the current data is saved to `data\backups\before-restore-*.zip` before it is replaced.
 - **One-click connection**: a session opens in a Windows Terminal tab (or a new window / a plain console,
   see Settings). With a key it goes through the built-in agent; with a password, the password is filled in automatically through
@@ -145,31 +163,31 @@ On first start the program asks you to choose a master password and offers to st
 - **Hotkey** **Win+Alt+X** (system-wide) shows the window, pressing it again hides it; change it or
   turn it off in "Settings → Interface" (click the field and press the combination).
 - **Auto-lock**: after N minutes of PC inactivity (120 by default) and, optionally, on Win+L.
-- **Console**: `sshm <server name>` connects to a saved server right in the current terminal,
-  `sshm list` lists the servers, `sshm cron <server>` shows scheduled jobs. Add the `app` folder to PATH
-  to run `sshm` from anywhere.
-- **AI agents (MCP)**: Claude Code, Codex and others can manage servers through SSH Manager, see below.
+- **Console**: `qk <server name>` connects to a saved server right in the current terminal,
+  `qk list` lists the servers, `qk cron <server>` shows scheduled jobs. Add the `app` folder to PATH
+  to run `qk` from anywhere.
+- **AI agents (MCP)**: Claude Code, Codex and others can manage servers through Quaykeep, see below.
 
 ## AI agents (MCP)
 
-SSH Manager works as an MCP server: the agent calls its tools, and the program runs the commands with the passwords and
+Quaykeep works as an MCP server: the agent calls its tools, and the program runs the commands with the passwords and
 keys from the vault; the agent never gets them. Turn it on in "Settings → AI agents (MCP)", which also has ready-made
 connection commands with a "Copy" button:
 
 ```powershell
-claude mcp add --scope user sshmanager -- "D:\…\app\sshm.exe" mcp          # Claude Code (stdio)
+claude mcp add --scope user quaykeep -- "D:\…\app\qk.exe" mcp          # Claude Code (stdio)
 ```
 
 ```toml
 # Codex: ~/.codex/config.toml
-[mcp_servers.sshmanager]
-command = 'D:\…\app\sshm.exe'
+[mcp_servers.quaykeep]
+command = 'D:\…\app\qk.exe'
 args = ["mcp"]
 tool_timeout_sec = 900
 ```
 
 Optionally also over HTTP on `127.0.0.1` (Streamable HTTP, a token in the `Authorization: Bearer …` header; foreign
-`Origin` / `Host` headers are rejected). If the program is not running, `sshm mcp` starts it in the tray; when the vault
+`Origin` / `Host` headers are rejected). If the program is not running, `qk mcp` starts it in the tray; when the vault
 is locked, the agent asks you to unlock it.
 
 **What an agent may do is set per server** ("Edit…" → "AI agent access", or the "AI agent access ▸" menu);
@@ -198,13 +216,13 @@ each level includes the previous ones:
 
 The agent listens on the named pipe `\\.\pipe\openssh-ssh-agent`, the standard address used by
 `ssh.exe`, `git` and VS Code Remote-SSH. If that pipe is already taken by another agent (for example **1Password** or
-the Windows `ssh-agent` service), SSH Manager uses `\\.\pipe\sshmanager-agent-<user>`.
-Sessions started from SSH Manager work either way. For other programs to take keys
-from SSH Manager too, free the standard pipe (for example, turn off the SSH agent in 1Password) or set a
+the Windows `ssh-agent` service), Quaykeep uses `\\.\pipe\quaykeep-agent-<user>`.
+Sessions started from Quaykeep work either way. For other programs to take keys
+from Quaykeep too, free the standard pipe (for example, turn off the SSH agent in 1Password) or set a
 user environment variable:
 
 ```powershell
-[Environment]::SetEnvironmentVariable('SSH_AUTH_SOCK', '\\.\pipe\sshmanager-agent-<user>', 'User')
+[Environment]::SetEnvironmentVariable('SSH_AUTH_SOCK', '\\.\pipe\quaykeep-agent-<user>', 'User')
 ```
 
 The exact agent address is shown in the status bar of the main window. While the vault is locked, the agent does not
@@ -212,7 +230,8 @@ hand out keys (when a client asks, the unlock window appears; can be turned off 
 
 ## Data and security
 
-All data lives in `SSHManagement\data` (the folder is in `.gitignore`):
+All data lives in the `data` folder: next to `Quaykeep.exe`, or next to `Quaykeep.sln` in a source checkout (the folder is
+in `.gitignore`):
 
 | File | Contents |
 |---|---|
@@ -226,7 +245,7 @@ All data lives in `SSHManagement\data` (the folder is in `.gitignore`):
 
 A backup = a copy of the `data` folder + the master password (the "Backup" section does this automatically;
 to restore, unpack the archive into the `data` folder). **A forgotten master password cannot be recovered.**
-The data folder can be overridden with the `SSHMANAGER_DATA` environment variable.
+The data folder can be overridden with the `QUAYKEEP_DATA` environment variable.
 
 ## Your own scripts with parameters and results
 
@@ -260,11 +279,11 @@ and the run history (parameters without secrets, exit code, the tail of the outp
 ## Solution layout
 
 ```
-src/SshManager.Core   vault, cryptography, key formats, SSH agent, IPC, launching ssh, key setup (SSH.NET),
+src/Quaykeep.Core   vault, cryptography, key formats, SSH agent, IPC, launching ssh, key setup (SSH.NET),
                       RU/EN strings, monitoring, metrics, inventory, GeoIP, iptables, scripts, backup
-src/SshManager        the WPF app: windows, server tree, tray, autostart, auto-lock
-src/sshm              console helper: terminal tab, SSH_ASKPASS, `sshm <server>`
-tests/SshManager.Tests  unit tests + compatibility with ssh-keygen/ssh-add + e2e
+src/Quaykeep        the WPF app: windows, server tree, tray, autostart, auto-lock
+src/qk              console helper: terminal tab, SSH_ASKPASS, `qk <server>`
+tests/Quaykeep.Tests  unit tests + compatibility with ssh-keygen/ssh-add + e2e
 ```
 
 Tests: `dotnet test`. The end-to-end test with a real sshd is turned on with the variable

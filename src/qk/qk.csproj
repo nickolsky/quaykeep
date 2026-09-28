@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>qk</AssemblyName>
+    <RootNamespace>Quaykeep.Cli</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Quaykeep.Core\Quaykeep.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Quaykeep.Core.Localization" />
+  </ItemGroup>
+
+</Project>

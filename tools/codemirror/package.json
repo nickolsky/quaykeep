@@ -1,9 +1,9 @@
 {
   "name": "sshm-codemirror-bundle",
   "private": true,
-  "description": "Builds src/SshManager/Assets/editor/vendor/codemirror.js",
+  "description": "Builds src/Quaykeep/Assets/editor/vendor/codemirror.js",
   "scripts": {
-    "build": "esbuild entry.js --bundle --minify --format=iife --legal-comments=none --outfile=../../src/SshManager/Assets/editor/vendor/codemirror.js"
+    "build": "esbuild entry.js --bundle --minify --format=iife --legal-comments=none --outfile=../../src/Quaykeep/Assets/editor/vendor/codemirror.js"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.3",
