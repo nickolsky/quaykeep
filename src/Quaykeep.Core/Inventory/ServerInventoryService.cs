@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Quaykeep.Core.Firewall;
 using Quaykeep.Core.Forwarding;
 using Quaykeep.Core.Models;
 using Quaykeep.Core.Ssh;
@@ -24,6 +25,7 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
         if command -v systemctl >/dev/null 2>&1; then echo '@@sshm:services'; systemctl list-units --type=service --all --no-legend --plain --no-pager 2>/dev/null
           echo '@@sshm:unit-files'; systemctl list-unit-files --type=service --no-legend --no-pager 2>/dev/null; fi
         if command -v iptables >/dev/null 2>&1; then echo '@@sshm:nat'; iptables -t nat -S 2>&1; fi
+        if command -v iptables >/dev/null 2>&1; then echo '@@sshm:fw'; iptables -S INPUT 2>&1; iptables -S QK-IN 2>/dev/null; fi
         echo '@@sshm:ports'; ss -Htlnp 2>/dev/null || ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null
         """ + "\n" + CronCollector.Script + "\necho '@@sshm:end'";
 
@@ -128,6 +130,7 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
         // "-P PREROUTING ACCEPT" is always printed when we could read the table (i.e. we were root)
         if (sections.TryGetValue("nat", out var nat) && nat.Contains("-P PREROUTING", StringComparison.Ordinal))
             f.Forwards = IptablesParser.ParseNat(nat);
+        if (sections.TryGetValue(FirewallRules.Section, out var fw) && FirewallRules.ParseState(fw) is { } state) f.Firewall = state;
 
         if (sections.TryGetValue("ports", out var ports)) f.ListeningPorts = ListeningPortParser.Parse(ports);
         if (CronCollector.Collected(sections)) f.CronJobs = CronCollector.Parse(sections);

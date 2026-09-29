@@ -108,6 +108,17 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="MiFirewall" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectionKind}" Value="server">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding SelectionKind}" Value="firewall">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="MiForwardPeer" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
             <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
@@ -297,6 +308,7 @@
                                 </Button>
                                 <Button Content="{l:Tr Main.Test}" Command="{Binding TestCommand}" Style="{StaticResource ToolbarButton}" />
                                 <Button Content="{l:Tr Main.PortForwards}" Command="{Binding PortForwardsCommand}" Style="{StaticResource ToolbarButton}" />
+                                <Button Content="{l:Tr Main.Firewall}" Command="{Binding FirewallCommand}" Style="{StaticResource ToolbarButton}" />
                                 <Button Command="{Binding RefreshAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="{l:Tr Main.RefreshAllTip}">
                                     <TextBlock Text="&#xE72C;" FontFamily="{StaticResource IconFont}" />
                                 </Button>
@@ -482,6 +494,7 @@
                                     <MenuItem Header="{l:Tr Ctx.InstallDocker}" Command="{Binding InstallDockerCommand}" Style="{StaticResource MiServer}" />
                                     <MenuItem Header="{Binding ForwardPeerHeader}" Command="{Binding GoToForwardPeerCommand}" FontWeight="SemiBold" Style="{StaticResource MiForwardPeer}" />
                                     <MenuItem Header="{l:Tr Ctx.PortForwards}" Command="{Binding PortForwardsCommand}" Style="{StaticResource MiForward}" />
+                                    <MenuItem Header="{l:Tr Ctx.Firewall}" Command="{Binding FirewallCommand}" Style="{StaticResource MiFirewall}" />
                                     <MenuItem Header="{l:Tr Ctx.MonitorPort}" Command="{Binding TogglePortCommand}" FontWeight="SemiBold" Style="{StaticResource MiPortOff}" />
                                     <MenuItem Header="{l:Tr Ctx.UnmonitorPort}" Command="{Binding TogglePortCommand}" Style="{StaticResource MiPortOn}" />
                                     <MenuItem Header="{l:Tr Ctx.PortMonitor}" Command="{Binding PortMonitorCommand}" Style="{StaticResource MiPorts}" />
@@ -543,6 +556,7 @@
                                     <MenuItem Header="{l:Tr Ctx.DeleteAttribute}" Command="{Binding DeleteAttributeCommand}" Style="{StaticResource MiAttribute}" />
 
                                     <MenuItem Header="{l:Tr Ctx.AddServer}" Command="{Binding AddServerCommand}" Style="{StaticResource MiGroup}" />
+                                    <MenuItem Header="{l:Tr Ctx.GroupFirewall}" Command="{Binding GroupFirewallCommand}" Style="{StaticResource MiGroup}" />
                                     <MenuItem Header="{l:Tr Menu.ExpandAll}" Command="{Binding ExpandAllCommand}" Style="{StaticResource MiGroup}" />
                                     <MenuItem Header="{l:Tr Menu.CollapseAll}" Command="{Binding CollapseAllCommand}" Style="{StaticResource MiGroup}" />
                                 </ContextMenu>

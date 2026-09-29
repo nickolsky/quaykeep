@@ -100,6 +100,20 @@ On first start the program asks you to choose a master password and offers to st
   (`443 → another server:443`, tcp/udp, ranges): DNAT + MASQUERADE + FORWARD, `ip_forward`, saved with
   netfilter-persistent / iptables-save (offers to install iptables-persistent when needed).
   Forwards are shown in the main tree, both outgoing and incoming.
+- **Firewall** ("Firewall…" in the server menu, "Firewall for the group…" in a group's menu): **block** chosen IPs and
+  networks, or **allow only** them, for ports (tcp/udp, lists, ranges) or for the whole server; IPv4 and IPv6.
+  - **Where it covers:** ports published by Docker containers and port forwards are covered too, so Docker's usual way
+    around ufw doesn't apply.
+  - **Order:** blocks → port allow-lists → the whole-server allow-list. Loopback, open connections, DHCP and ICMPv6 always
+    pass, so an allow-list can't take away the server's address.
+  - **Only restricts:** it doesn't open what the server's own firewall (ufw, firewalld) closes.
+  - **Apply is safe:** the rules go in together with a timer on the server that puts the old ones back, and they are kept
+    only when a *new* SSH login still works. The window also warns first when the rules would cut SSH from this PC.
+  - **Saved** in `quaykeep-firewall.service`, so they come back after a reboot.
+  - **Several servers:** "Copy to servers…" (add or replace), or the group window.
+  - **On the server** the rules live in Quaykeep's own iptables chains, `QK-IN` / `QK-FWD`; "Turn firewall off…" removes
+    them.
+  - **Proxies:** clients behind a CDN or proxy arrive with the proxy's IP.
 - **Install scripts**: "Settings → Install scripts" (kept in the encrypted vault), run with a right click →
   "Install ▸". A script runs in a program window: a parameter form, live output, results
   saved with the server (the "Script results" section in the tree, "Copy value"); links (`vless://`,
@@ -196,10 +210,10 @@ each level includes the previous ones:
 | Level | Tools |
 |---|---|
 | Off (default) | the server is invisible to the agent |
-| Read only | `list_servers`, `server_status` (availability, CPU / memory / disk, uptime), `list_containers`, `list_services`, `list_cron_jobs`, `list_ports`, `container_logs`, `service_logs` |
+| Read only | `list_servers`, `server_status` (availability, CPU / memory / disk, uptime), `list_containers`, `list_services`, `list_cron_jobs`, `list_ports`, `list_firewall`, `container_logs`, `service_logs` |
 | Read and reboot | + `reboot_server` |
 | Menu commands | + `container_action` (start / stop / restart / autostart / remove), `service_action`, `refresh_info`, `list_install_scripts`, `run_install_script` + `get_job` |
-| Full access | + `run_command` (sudo included), `list_directory`, `read_file`, `write_file`, `delete_path`, `upload` / `download` (only to the server's allowed local folders), `script_results` |
+| Full access | + `run_command` (sudo included), `list_directory`, `read_file`, `write_file`, `delete_path`, `upload` / `download` (only to the server's allowed local folders), `script_results`, `add_firewall_rule` / `remove_firewall_rule` (asks you; a rule that would cut Quaykeep's SSH is refused) |
 
 - Reboots and deletions (of a container, file or folder), as well as stopping SSH, are first shown in an
   "Allow / Deny" window (no answer in 2 minutes means deny; can be turned off in Settings).

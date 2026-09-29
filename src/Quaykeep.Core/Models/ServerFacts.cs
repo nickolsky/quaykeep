@@ -19,6 +19,8 @@ public sealed class ServerFacts
     /// <summary>crontab lines of every user, /etc/crontab, /etc/cron.d, cron.daily… and systemd timers.</summary>
     public List<CronJob> CronJobs { get; set; } = [];
     public List<PortForward> Forwards { get; set; } = [];
+    /// <summary>Quaykeep's firewall chains as last read from the server (null = not read yet).</summary>
+    public FirewallState? Firewall { get; set; }
     /// <summary>TCP ports the server listens on (ss -tlnp).</summary>
     public List<ListeningPort> ListeningPorts { get; set; } = [];
     public GeoInfo? Geo { get; set; }

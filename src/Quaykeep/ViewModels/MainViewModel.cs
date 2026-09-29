@@ -79,6 +79,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         AgentLogCommand = new RelayCommand(OpenAgentLog);
         SetMonitorIntervalCommand = new RelayCommand(p => SetMonitorInterval(p is int m ? m : null), _ => HasServer());
         PortForwardsCommand = new RelayCommand(OpenPortForwards, HasServer);
+        FirewallCommand = new RelayCommand(OpenFirewall, HasServer);
+        GroupFirewallCommand = new RelayCommand(OpenGroupFirewall, () => SelectedNode is GroupNode);
         GoToForwardPeerCommand = new RelayCommand(GoToForwardPeer, () => SelectedNode is ForwardNode { Peer: not null });
         PortMonitorCommand = new RelayCommand(OpenPortMonitor, HasServer);
         TogglePortCommand = new RelayCommand(TogglePort, () => SelectedNode is PortNode { CanMonitor: true });
@@ -194,6 +196,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ServiceNode => "service",
         CronNode => "cron",
         ForwardNode => "forward",
+        FirewallRuleNode => "firewall",
         PortNode { Monitored: not null } => "port-on",
         AttributeNode => "attribute",
         PortNode => "port-off",
@@ -279,6 +282,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand SetMcpAccessCommand { get; }
     public ICommand AgentLogCommand { get; }
     public ICommand PortForwardsCommand { get; }
+    public ICommand FirewallCommand { get; }
+    public ICommand GroupFirewallCommand { get; }
     public ICommand GoToForwardPeerCommand { get; }
 
     /// <summary>"Go to «B»" for the selected forward: its target, or the server an incoming one comes from.</summary>
@@ -982,6 +987,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             Busy = false;
         }
+    }
+
+    private void OpenFirewall()
+    {
+        if (SelectedServer == null) return;
+        new FirewallWindow(_host, [SelectedServer.Entry.Clone()]) { Owner = Owner }.Show();
+    }
+
+    /// <summary>The group's servers, subgroups included (servers behind a jump host are left out by the window).</summary>
+    private void OpenGroupFirewall()
+    {
+        if (SelectedNode is not GroupNode g) return;
+        var servers = _host.Vault.Read(d => d.Servers
+            .Where(s => s.Group == g.Path || s.Group.StartsWith(g.Path + "/", StringComparison.Ordinal))
+            .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).Select(s => s.Clone()).ToList());
+        if (servers.Count == 0) return;
+        new FirewallWindow(_host, servers, g.Path) { Owner = Owner }.Show();
     }
 
     private void OpenPortForwards()

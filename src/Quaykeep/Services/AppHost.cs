@@ -6,6 +6,7 @@ using Microsoft.Win32;
 using Quaykeep.Core;
 using Quaykeep.Core.Agent;
 using Quaykeep.Core.Backup;
+using Quaykeep.Core.Firewall;
 using Quaykeep.Core.Forwarding;
 using Quaykeep.Core.Geo;
 using Quaykeep.Core.Inventory;
@@ -50,6 +51,7 @@ public sealed partial class AppHost : IDisposable
         Health = new HealthMonitor(Vault, SettingsStore, Uptime);
         Metrics = new MetricsCollector(Ssh);
         Forwards = new PortForwardService(Vault, Ssh);
+        Firewall = new FirewallService(Vault, Ssh);
         Backup = new BackupService(Vault, SettingsStore, Ssh);
         Scripts = new ScriptRunner(Ssh);
         Updates = new UpdateManager(this);
@@ -84,6 +86,7 @@ public sealed partial class AppHost : IDisposable
     public UptimeLog Uptime { get; } = new();
     public MetricsCollector Metrics { get; }
     public PortForwardService Forwards { get; }
+    public FirewallService Firewall { get; }
     public BackupService Backup { get; }
     public ScriptRunner Scripts { get; }
     public UpdateManager Updates { get; }

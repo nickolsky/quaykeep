@@ -120,6 +120,8 @@ public class McpProtocolTests
             Assert.Contains("list_cron_jobs", names);
             Assert.DoesNotContain("reboot_server", names);
             Assert.DoesNotContain("run_command", names);
+            Assert.Contains("list_firewall", names); // reading the rules is harmless
+            Assert.DoesNotContain("add_firewall_rule", names);
             var tool = (await ro.Rpc("tools/list"))["result"]!["tools"]!.AsArray().First(t => (string)t!["name"]! == "container_logs")!;
             Assert.Equal("object", (string?)tool["inputSchema"]!["type"]);
             Assert.Contains("server", tool["inputSchema"]!["required"]!.AsArray().Select(x => (string)x!));
@@ -131,6 +133,8 @@ public class McpProtocolTests
             Assert.Contains("run_command", names);
             Assert.Contains("upload", names);
             Assert.Contains("reboot_server", names);
+            Assert.Contains("add_firewall_rule", names);
+            Assert.Contains("remove_firewall_rule", names);
         }
         using (var off = new McpFixture(("a", McpAccess.Full)))
         {

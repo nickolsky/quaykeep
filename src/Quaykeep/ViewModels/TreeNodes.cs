@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using Quaykeep.Core.Firewall;
 using Quaykeep.Core.Forwarding;
 using Quaykeep.Core.Models;
 using Quaykeep.Core.Monitoring;
@@ -405,7 +406,24 @@ public sealed class ServerNode : TreeNode
                 });
         }
 
+        AddFirewall(f);
         AddPorts(f);
+    }
+
+    /// <summary>The server's firewall rules and whether the server has them.</summary>
+    private void AddFirewall(ServerFacts f)
+    {
+        var rules = Entry.Firewall?.Rules ?? [];
+        if (rules.Count == 0 && f.Firewall?.Installed != true) return;
+        var status = FirewallRules.Status(Entry.Firewall, f.Firewall);
+        var section = Section("firewall", L.F("Tree.FirewallSection", rules.Count(r => r.Enabled)), "");
+        section.Children.Add(new FirewallRuleNode(Level + 2, FirewallRules.StatusText(status), null, section) { Muted = status != FirewallStatus.Applied });
+        foreach (var r in rules)
+            section.Children.Add(new FirewallRuleNode(Level + 2, FirewallRules.Describe(r), r, section)
+            {
+                Muted = !r.Enabled,
+                State = L.Get(!r.Enabled ? "Fw.RuleOff" : status == FirewallStatus.Applied ? "Fw.RuleActive" : "Fw.RulePending"),
+            });
     }
 
     /// <summary>Values returned by scripts (VLESS links etc.), first so they are easy to find.</summary>
@@ -432,7 +450,7 @@ public sealed class ServerNode : TreeNode
     private SectionNode Section(string key, string title, string icon)
     {
         var s = new SectionNode(Level + 1, key, title, icon, this);
-        s.IsExpanded = _sectionState.TryGetValue(key, out var e) ? e : key is not ("services" or "cron");
+        s.IsExpanded = _sectionState.TryGetValue(key, out var e) ? e : key is not ("services" or "cron" or "firewall");
         Children.Add(s);
         return s;
     }
@@ -581,6 +599,29 @@ public sealed class ForwardNode : TreeNode
     public override string Icon => Forward == null ? "" : ""; // back / forward arrows
     public override string Address => Forward == null ? "" : Forward.Managed ? "Quaykeep" : L.Get("Fwd.External");
     public override bool IsMuted => Forward == null;
+}
+
+/// <summary>A firewall rule of the server (or, with no rule, the line saying whether the server has the rules).</summary>
+public sealed class FirewallRuleNode : TreeNode
+{
+    private readonly string _text;
+
+    public FirewallRuleNode(int level, string text, FirewallRule? rule, TreeNode parent) : base(level)
+    {
+        _text = text;
+        Rule = rule;
+        Parent = parent;
+    }
+
+    public FirewallRule? Rule { get; }
+    public bool Muted { get; init; }
+    public string State { get; init; } = "";
+    public override string Title => _text;
+    public override string? Tip => Rule == null ? _text
+        : string.Join("\n", Rule.Sources) + (string.IsNullOrWhiteSpace(Rule.Comment) ? "" : "\n\n" + Rule.Comment);
+    public override string Icon => Rule == null ? "" : Rule.Action == FirewallAction.Block ? "" : "";
+    public override string Address => Rule?.Comment ?? State;
+    public override bool IsMuted => Muted;
 }
 
 public sealed class AttributeNode : TreeNode

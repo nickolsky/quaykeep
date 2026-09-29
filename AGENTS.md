@@ -70,6 +70,19 @@ tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some s
   - Log in afresh after the reload, and roll back automatically if that fails.
   - Right after `systemctl reload ssh`, sshd re-executes itself, so retry connection-level failures (never failed logins)
     for a few seconds. See `KeySetupService.DisablePasswordLogin`.
+- **Firewall** (`src/Quaykeep.Core/Firewall`):
+  - Rules live in Quaykeep's own chains:
+    - `QK-IN` is the first rule of `INPUT`;
+    - `QK-FWD` is the first rule of `FORWARD` and of `DOCKER-USER`, and matches DNAT-ed connections by
+      `--ctorigdstport`;
+    - both exist in iptables and ip6tables;
+    - rules are tagged `qk:<id>`, and the loopback rule carries `qk-fw:<hash>`.
+  - They're loaded with `iptables-restore --noflush` (only these chains) and saved in `/etc/quaykeep` +
+    `quaykeep-firewall.service`.
+  - `FirewallService.Apply` arms a revert timer on the server (`quaykeep-fw-revert`, files in `/run/quaykeep-fw`) *before*
+    loading. It confirms only after a fresh SSH login and reverts through the kept connection otherwise. Keep this order.
+  - Loopback, ESTABLISHED/RELATED, DHCP and ICMPv6 must always pass. Without them a whole-server allow-list takes the
+    server off the network.
 
 ## Built-in install scripts (`src/Quaykeep.Core/Scripts/Builtin/*.sh`)
 

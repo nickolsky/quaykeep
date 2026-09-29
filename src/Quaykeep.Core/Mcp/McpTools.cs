@@ -102,6 +102,7 @@ public sealed partial class McpServer
             McpAccess.LimitedWrite, Schema(ServerProp, new Prop("job_id", "string", "The id run_install_script returned.", true),
                 new Prop("lines", "integer", "How many last output lines (default 100, at most 2000).")), GetJob),
 
+        .. FirewallTools(),
         .. FullTools(),
     ];
 

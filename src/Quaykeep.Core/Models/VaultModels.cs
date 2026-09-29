@@ -50,6 +50,8 @@ public sealed class ServerEntry
     public McpAccess McpAccess { get; set; } = McpAccess.Off;
     /// <summary>Local folders the agent may copy files from and to (<see cref="McpAccess.Full"/> only).</summary>
     public List<string> McpFolders { get; set; } = [];
+    /// <summary>Firewall rules Quaykeep keeps on the server (null = never set up).</summary>
+    public FirewallConfig? Firewall { get; set; }
 
     public string Display => $"{Username}@{Host}" + (Port != 22 ? $":{Port}" : "");
 
@@ -60,6 +62,7 @@ public sealed class ServerEntry
         c.MonitoredPorts = MonitoredPorts.Select(p => p.Clone()).ToList();
         c.Attributes = Attributes.Select(a => a.Clone()).ToList();
         c.ScriptRuns = ScriptRuns.Select(r => r.Clone()).ToList();
+        c.Firewall = Firewall?.Clone();
         return c;
     }
 }
