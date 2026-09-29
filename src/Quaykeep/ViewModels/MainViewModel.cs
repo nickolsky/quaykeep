@@ -127,7 +127,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         RestoreBackupCommand = new RelayCommand(RestoreBackup);
         SetLanguageCommand = new RelayCommand(p => _host.SetLanguage(p as string is "ru" or "en" ? (string)p : null));
         AboutCommand = new RelayCommand(About);
-        ExitCommand = new RelayCommand(() => _host.Exit());
+        ExitCommand = new RelayCommand(() =>
+        {
+            // quitting also stops the SSH agent and the AI agents' connection: easy to hit by mistake from the top bar
+            var answer = Owner != null
+                ? MessageBox.Show(Owner, L.Get("Main.ConfirmExit"), AppPaths.ProductTitle, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No)
+                : MessageBox.Show(L.Get("Main.ConfirmExit"), AppPaths.ProductTitle, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+            if (answer == MessageBoxResult.Yes) _host.Exit();
+        });
         OpenScriptsSettingsCommand = new RelayCommand(() => SelectedTab = 2);
 
         GenerateKeyCommand = new RelayCommand(GenerateKey);

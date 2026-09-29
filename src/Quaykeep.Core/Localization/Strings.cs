@@ -52,6 +52,8 @@ internal static class Strings
         ["Main.SearchTip"] = ("Поиск по названию, адресу, группе, заметкам, ОС, региону, контейнерам (Ctrl+F)",
             "Search by name, address, group, notes, OS, location, containers (Ctrl+F)"),
         ["Main.Lock"] = ("Заблокировать", "Lock"),
+        ["Main.ConfirmExit"] = ("Выйти из Quaykeep? Вместе с программой остановятся SSH-агент и подключения ИИ-агентов. Чтобы просто спрятать окно, нажмите крестик — программа останется в трее.",
+            "Exit Quaykeep? The SSH agent and the AI agents' connections stop with it. To just hide the window, use the close button: the app stays in the tray."),
         ["Main.ExitTip"] = ("Закрыть программу совсем (крестик окна только сворачивает её в трей)", "Quit the app (the window's close button only hides it in the tray)"),
         ["Main.Summary"] = ("Серверов: {0} (онлайн {1}, недоступно {2})   Ключей: {3}",
             "Servers: {0} ({1} online, {2} down)   Keys: {3}"),
