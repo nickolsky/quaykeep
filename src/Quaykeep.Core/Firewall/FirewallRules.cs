@@ -46,7 +46,7 @@ public static partial class FirewallRules
         string.Join(',', text.Split([',', ';', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(p => p.Replace('-', ':')));
 
-    private static List<string> PortItems(string ports) => NormalizePorts(ports).Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+    internal static List<string> PortItems(string ports) => NormalizePorts(ports).Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
 
     private static bool ValidPortItem(string p)
     {

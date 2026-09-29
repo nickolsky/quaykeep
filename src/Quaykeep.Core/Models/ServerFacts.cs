@@ -23,6 +23,8 @@ public sealed class ServerFacts
     public FirewallState? Firewall { get; set; }
     /// <summary>TCP ports the server listens on (ss -tlnp).</summary>
     public List<ListeningPort> ListeningPorts { get; set; } = [];
+    /// <summary>The server's own addresses with their prefix ("10.0.0.5/24"; ip -o addr, global scope, no Docker bridges).</summary>
+    public List<string> Addresses { get; set; } = [];
     public GeoInfo? Geo { get; set; }
 
     /// <summary>"Ubuntu 24.04" style label.</summary>

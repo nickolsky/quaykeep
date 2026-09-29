@@ -80,6 +80,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SetMonitorIntervalCommand = new RelayCommand(p => SetMonitorInterval(p is int m ? m : null), _ => HasServer());
         PortForwardsCommand = new RelayCommand(OpenPortForwards, HasServer);
         FirewallCommand = new RelayCommand(OpenFirewall, HasServer);
+        NetworkMapCommand = new RelayCommand(OpenNetworkMap, () => _host.Vault.IsUnlocked);
         GroupFirewallCommand = new RelayCommand(OpenGroupFirewall, () => SelectedNode is GroupNode);
         GoToForwardPeerCommand = new RelayCommand(GoToForwardPeer, () => SelectedNode is ForwardNode { Peer: not null });
         PortMonitorCommand = new RelayCommand(OpenPortMonitor, HasServer);
@@ -290,6 +291,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand AgentLogCommand { get; }
     public ICommand PortForwardsCommand { get; }
     public ICommand FirewallCommand { get; }
+    public ICommand NetworkMapCommand { get; }
     public ICommand GroupFirewallCommand { get; }
     public ICommand GoToForwardPeerCommand { get; }
 
@@ -437,13 +439,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void RebuildIpMap()
     {
-        var map = new Dictionary<string, ServerEntry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var s in _host.Vault.Data.Servers)
-        {
-            if (IPAddress.TryParse(s.Host, out _)) map.TryAdd(s.Host, s);
-            if (s.Facts?.Geo?.Ip is { Length: > 0 } ip) map.TryAdd(ip, s);
-        }
-        _serversByIp = map;
+        // hosts, public addresses, and the interface addresses that belong to one server only (forwards to private IPs)
+        _serversByIp = new AddressBook(_host.Vault.Data.Servers).Map();
     }
 
     public static string[] SplitGroup(string? group) =>
@@ -1020,6 +1017,24 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).Select(s => s.Clone()).ToList());
         if (servers.Count == 0) return;
         new FirewallWindow(_host, servers, g.Path) { Owner = Owner }.Show();
+    }
+
+    private NetworkMapWindow? _mapWindow;
+
+    /// <summary>One map for all servers; the selected server (or forward) is picked on it.</summary>
+    private void OpenNetworkMap()
+    {
+        if (_mapWindow is { IsLoaded: true })
+        {
+            _mapWindow.Activate();
+            return;
+        }
+        string? select = null;
+        if (SelectedNode is ForwardNode { Forward: { } f } && SelectedServer != null) select = $"{SelectedServer.Entry.Id:N}|{f.Key}";
+        else if (SelectedServer != null) select = MapNode.KeyOf(SelectedServer.Entry);
+        _mapWindow = new NetworkMapWindow(_host, this, select) { Owner = Owner };
+        _mapWindow.Closed += (_, _) => _mapWindow = null;
+        _mapWindow.Show();
     }
 
     private void OpenPortForwards()

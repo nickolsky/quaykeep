@@ -130,6 +130,16 @@ public sealed class VaultService
         DataChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>A write nothing else shows (e.g. where the network map's nodes are): saved, no backup, no DataChanged.</summary>
+    public void UpdateQuietly(Action<VaultData> change)
+    {
+        lock (_sync)
+        {
+            change(Data);
+            SaveLocked(backup: false);
+        }
+    }
+
     /// <summary>Updates collected facts of a server (no backup copy). Returns false if locked or the server is gone.</summary>
     public bool UpdateFacts(Guid serverId, Action<ServerFacts> change)
     {

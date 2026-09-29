@@ -9,6 +9,7 @@
         <KeyBinding Key="N" Modifiers="Control" Command="{Binding AddServerCommand}" />
         <KeyBinding Key="L" Modifiers="Control" Command="{Binding LockCommand}" />
         <KeyBinding Key="F5" Command="{Binding RefreshAllCommand}" />
+        <KeyBinding Key="M" Modifiers="Control" Command="{Binding NetworkMapCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
@@ -260,6 +261,7 @@
             <MenuItem Header="{l:Tr Menu.View}">
                 <MenuItem Header="{l:Tr Menu.ExpandAll}" Command="{Binding ExpandAllCommand}" />
                 <MenuItem Header="{l:Tr Menu.CollapseAll}" Command="{Binding CollapseAllCommand}" />
+                <MenuItem Header="{l:Tr Menu.NetworkMap}" Command="{Binding NetworkMapCommand}" InputGestureText="Ctrl+M" />
                 <Separator />
                 <MenuItem Header="{l:Tr Menu.RefreshAll}" Command="{Binding RefreshAllCommand}" InputGestureText="F5" />
             </MenuItem>
@@ -326,6 +328,7 @@
                                 <Button Content="{l:Tr Main.Test}" Command="{Binding TestCommand}" Style="{StaticResource ToolbarButton}" />
                                 <Button Content="{l:Tr Main.PortForwards}" Command="{Binding PortForwardsCommand}" Style="{StaticResource ToolbarButton}" />
                                 <Button Content="{l:Tr Main.Firewall}" Command="{Binding FirewallCommand}" Style="{StaticResource ToolbarButton}" />
+                                <Button Content="{l:Tr Main.NetworkMap}" Command="{Binding NetworkMapCommand}" Style="{StaticResource ToolbarButton}" ToolTip="{l:Tr Main.NetworkMapTip}" />
                                 <Button Command="{Binding RefreshAllCommand}" Style="{StaticResource ToolbarButton}" ToolTip="{l:Tr Main.RefreshAllTip}">
                                     <TextBlock Text="&#xE72C;" FontFamily="{StaticResource IconFont}" />
                                 </Button>
@@ -512,6 +515,7 @@
                                     <MenuItem Header="{Binding ForwardPeerHeader}" Command="{Binding GoToForwardPeerCommand}" FontWeight="SemiBold" Style="{StaticResource MiForwardPeer}" />
                                     <MenuItem Header="{l:Tr Ctx.PortForwards}" Command="{Binding PortForwardsCommand}" Style="{StaticResource MiForward}" />
                                     <MenuItem Header="{l:Tr Ctx.Firewall}" Command="{Binding FirewallCommand}" Style="{StaticResource MiFirewall}" />
+                                    <MenuItem Header="{l:Tr Ctx.NetworkMap}" Command="{Binding NetworkMapCommand}" Style="{StaticResource MiForward}" />
                                     <MenuItem Header="{l:Tr Ctx.MonitorPort}" Command="{Binding TogglePortCommand}" FontWeight="SemiBold" Style="{StaticResource MiPortOff}" />
                                     <MenuItem Header="{l:Tr Ctx.UnmonitorPort}" Command="{Binding TogglePortCommand}" Style="{StaticResource MiPortOn}" />
                                     <MenuItem Header="{l:Tr Ctx.PortMonitor}" Command="{Binding PortMonitorCommand}" Style="{StaticResource MiPorts}" />

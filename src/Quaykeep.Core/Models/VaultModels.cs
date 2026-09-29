@@ -138,6 +138,14 @@ public sealed class VaultData
     public List<string> RemovedBuiltins { get; set; } = [];
     /// <summary>Named firewall rule sets that servers use together with their own rules.</summary>
     public List<FirewallPreset> FirewallPresets { get; set; } = [];
+    /// <summary>Where the user put the nodes of the network map (key: <see cref="Forwarding.MapNode.Key"/>).</summary>
+    public Dictionary<string, MapPosition> MapLayout { get; set; } = [];
+}
+
+public sealed class MapPosition
+{
+    public double X { get; set; }
+    public double Y { get; set; }
 }
 
 public enum ScriptKind

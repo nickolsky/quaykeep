@@ -27,6 +27,7 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
         if command -v iptables >/dev/null 2>&1; then echo '@@sshm:nat'; iptables -t nat -S 2>&1; fi
         if command -v iptables >/dev/null 2>&1; then echo '@@sshm:fw'; iptables -S INPUT 2>&1; iptables -S QK-IN 2>/dev/null; fi
         echo '@@sshm:ports'; ss -Htlnp 2>/dev/null || ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null
+        if command -v ip >/dev/null 2>&1; then echo '@@sshm:addr'; ip -o addr show 2>/dev/null; fi
         """ + "\n" + CronCollector.Script + "\necho '@@sshm:end'";
 
     private readonly SemaphoreSlim _gate = new(4);
@@ -133,6 +134,7 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
         if (sections.TryGetValue(FirewallRules.Section, out var fw) && FirewallRules.ParseState(fw) is { } state) f.Firewall = state;
 
         if (sections.TryGetValue("ports", out var ports)) f.ListeningPorts = ListeningPortParser.Parse(ports);
+        if (sections.TryGetValue("addr", out var addr)) f.Addresses = InterfaceAddressParser.Parse(addr);
         if (CronCollector.Collected(sections)) f.CronJobs = CronCollector.Parse(sections);
 
         f.InventoryError = null;

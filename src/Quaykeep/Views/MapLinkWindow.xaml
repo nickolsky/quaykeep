@@ -1,0 +1,64 @@
+<Window x:Class="Quaykeep.Views.MapLinkWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:Quaykeep.Localization"
+        Title="{l:Tr Map.LinkTitle}" Width="620" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="22,16,22,18">
+        <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Style="{StaticResource Hint}" Text="{l:Tr Map.LinkHint}" Margin="0,6,0,4" />
+
+        <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="110" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="{l:Tr Fw.Protocol}" />
+                <ComboBox x:Name="ProtoBox" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="OnChanged">
+                    <ComboBoxItem Content="tcp" />
+                    <ComboBoxItem Content="udp" />
+                    <ComboBoxItem Content="tcp+udp" />
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock x:Name="ListenLabel" Style="{StaticResource FieldLabel}" TextTrimming="CharacterEllipsis" />
+                <TextBox x:Name="ListenBox" TextChanged="OnChanged" ToolTip="{l:Tr Map.PortTip}" />
+            </StackPanel>
+            <StackPanel Grid.Column="4">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="{l:Tr Map.TargetAddress}" />
+                <ComboBox x:Name="TargetBox" IsEditable="True" HorizontalAlignment="Stretch"
+                          SelectionChanged="OnChanged" LostFocus="OnChanged" KeyUp="OnChanged" />
+            </StackPanel>
+            <StackPanel Grid.Column="6">
+                <TextBlock x:Name="TargetPortLabel" Style="{StaticResource FieldLabel}" TextTrimming="CharacterEllipsis" />
+                <TextBox x:Name="TargetPortBox" TextChanged="OnChanged" ToolTip="{l:Tr Map.TargetPortTip}" />
+            </StackPanel>
+        </Grid>
+
+        <Border Margin="0,16,0,0" Padding="12,10" CornerRadius="6" BorderThickness="1"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+            <StackPanel>
+                <TextBlock x:Name="EntryText" TextWrapping="Wrap" />
+                <TextBlock x:Name="VerdictText" TextWrapping="Wrap" Margin="0,6,0,0" />
+                <CheckBox x:Name="AllowBox" Margin="0,8,0,0" Visibility="Collapsed" IsChecked="True" Click="OnChanged">
+                    <TextBlock x:Name="AllowText" TextWrapping="Wrap" />
+                </CheckBox>
+                <TextBlock x:Name="ProblemText" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                <TextBlock x:Name="WarningText" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button x:Name="OkButton" Content="{l:Tr Map.AddToPlan}" IsDefault="True" Click="OnOk" Style="{DynamicResource AccentButtonStyle}" MinWidth="150" />
+            <Button Content="{l:Tr Common.Cancel}" IsCancel="True" Style="{StaticResource DialogButton}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

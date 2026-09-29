@@ -121,6 +121,24 @@ On first start the program asks you to choose a master password and offers to st
   - **On the server** the rules live in Quaykeep's own iptables chains, `QK-IN` / `QK-FWD`; "Turn firewall off…" removes
     them.
   - **Proxies:** clients behind a CDN or proxy arrive with the proxy's IP.
+- **Network map** (the "Network map" button, Ctrl+M, "Show on the network map" in a server's menu): every server's port
+  forwards as a diagram. Servers and the addresses forwards go to are nodes, and each forward is an arrow
+  labelled `tcp 443 → 8443`.
+  - **Routes:** click an arrow to light up its whole route, from where clients come in to what listens at the end
+    (nginx, a container…). The side panel lists every hop.
+  - **Firewall on the map:** forwards masquerade, so each server sees the previous one's address. Every hop is checked
+    against the next server's Quaykeep rules: green lets it through, red drops it (the panel names the rule), yellow
+    depends on an address that isn't known. A shield where clients come in shows who may connect.
+  - **Private networks:** the inventory reads each server's interface addresses, so a forward to `10.0.0.3` ends at
+    the server that has that address on the sender's network. The same private address elsewhere is another host.
+  - **Linking:** drag from a server's dot to another server (or to empty space for any address) to plan a forward. The
+    form checks the ports against existing forwards and the SSH port. When the target's allow-list would drop the
+    new hop, it offers to add the sender's address to that rule.
+  - **Plan, then Apply:** planned forwards (dashed), forwards marked for removal and firewall additions wait in a plan.
+    Apply runs the firewall first (with the usual login check), then the removals, then the new forwards; anything
+    that fails stays in the plan.
+  - **Layout:** automatic, one column per hop. Drag nodes to move them (positions are kept in the vault), and use
+    "Auto layout" to start over.
 - **Install scripts**: "Settings → Install scripts" (kept in the encrypted vault), run with a right click →
   "Install ▸". A script runs in a program window: a parameter form, live output, results
   saved with the server (the "Script results" section in the tree, "Copy value"); links (`vless://`,

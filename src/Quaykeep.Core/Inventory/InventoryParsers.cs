@@ -261,3 +261,28 @@ public static class SectionParser
         return result;
     }
 }
+
+/// <summary>
+/// "ip -o addr" lines: the addresses (with prefix) of the server's own interfaces, global scope. Docker's bridges and
+/// container links are left out: every Docker host has the same 172.17.0.1, which says nothing about its network.
+/// </summary>
+public static class InterfaceAddressParser
+{
+    public static List<string> Parse(string text)
+    {
+        var list = new List<string>();
+        foreach (var raw in text.Split('\n'))
+        {
+            // 2: eth0    inet 10.0.0.5/24 brd 10.0.0.255 scope global dynamic eth0\       valid_lft 3000sec ...
+            var t = raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (t.Length < 4 || t[2] is not ("inet" or "inet6")) continue;
+            var name = t[1].Split('@')[0];
+            if (name == "lo" || name == "docker0" || name.StartsWith("br-", StringComparison.Ordinal) ||
+                name.StartsWith("veth", StringComparison.Ordinal)) continue;
+            var scope = Array.IndexOf(t, "scope");
+            if (scope < 0 || scope + 1 >= t.Length || t[scope + 1] != "global") continue;
+            if (Firewall.FirewallRules.TryNetwork(t[3].Split('/')[0], out _) && !list.Contains(t[3])) list.Add(t[3]);
+        }
+        return list;
+    }
+}

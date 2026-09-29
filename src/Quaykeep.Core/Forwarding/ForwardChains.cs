@@ -97,6 +97,10 @@ public static class ForwardChains
         return plo >= lo && phi <= hi;
     }
 
+    /// <summary>Two ports or ranges have a port in common.</summary>
+    public static bool Overlaps(string a, string b) =>
+        TryRange(a, out var alo, out var ahi) && TryRange(b, out var blo, out var bhi) ? alo <= bhi && blo <= ahi : a == b;
+
     private static bool TryRange(string s, out int lo, out int hi)
     {
         var parts = s.Split(':', '-');

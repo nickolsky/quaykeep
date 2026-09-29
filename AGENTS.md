@@ -83,6 +83,11 @@ tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some s
     loading. It confirms only after a fresh SSH login and reverts through the kept connection otherwise. Keep this order.
   - Loopback, ESTABLISHED/RELATED, DHCP and ICMPv6 must always pass. Without them a whole-server allow-list takes the
     server off the network.
+- **Network map** (`Forwarding/NetworkMap.cs`, `Firewall/FirewallCheck.cs`, `Forwarding/AddressBook.cs`; UI in
+  `NetworkMapWindow`): the graph, routes, layout and each hop's firewall verdict are worked out in Core and unit-tested.
+  - `FirewallCheck` must follow the order of `FirewallRules.Payload`. Change the two together.
+  - A private address maps to a server only on the sender's network (`AddressBook.Find(ip, from)`).
+  - Drawn links wait in a `MapPlan` until Apply, which goes firewall first, then removals, then adds.
 
 ## Built-in install scripts (`src/Quaykeep.Core/Scripts/Builtin/*.sh`)
 
