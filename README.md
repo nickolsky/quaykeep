@@ -110,7 +110,14 @@ On first start the program asks you to choose a master password and offers to st
   - **Apply is safe:** the rules go in together with a timer on the server that puts the old ones back, and they are kept
     only when a *new* SSH login still works. The window also warns first when the rules would cut SSH from this PC.
   - **Saved** in `quaykeep-firewall.service`, so they come back after a reboot.
+  - **Sources:** "+ this PC", "+ everyone" (`0.0.0.0/0` and `::/0`), or "+ server ▾", which adds another server's IP and
+    remembers that it belongs to that server.
+  - **Presets:** named rule sets (for example "SSH from the office only"), kept once and ticked per server. A server
+    uses its own rules plus its presets, and editing a preset applies it on every server that uses it.
   - **Several servers:** "Copy to servers…" (add or replace), or the group window.
+  - **A server's IP changes:** when you save a new host in its editor, Quaykeep lists the firewall rules (linked or the
+    same address typed in) and the **port forwards** on other servers that point to the old IP. It updates and applies
+    them in one go.
   - **On the server** the rules live in Quaykeep's own iptables chains, `QK-IN` / `QK-FWD`; "Turn firewall off…" removes
     them.
   - **Proxies:** clients behind a CDN or proxy arrive with the proxy's IP.

@@ -414,9 +414,11 @@ public sealed class ServerNode : TreeNode
     private void AddFirewall(ServerFacts f)
     {
         var rules = Entry.Firewall?.Rules ?? [];
-        if (rules.Count == 0 && f.Firewall?.Installed != true) return;
-        var status = FirewallRules.Status(Entry.Firewall, f.Firewall);
-        var section = Section("firewall", L.F("Tree.FirewallSection", rules.Count(r => r.Enabled)), "");
+        var presets = _vm.FirewallPresets.Where(p => Entry.Firewall?.Presets.Contains(p.Id) == true).ToList();
+        if (rules.Count == 0 && presets.Count == 0 && f.Firewall?.Installed != true) return;
+        var effective = FirewallSets.Effective(Entry.Firewall, presets);
+        var status = FirewallRules.Status(effective, f.Firewall);
+        var section = Section("firewall", L.F("Tree.FirewallSection", effective.Rules.Count(r => r.Enabled)), "");
         section.Children.Add(new FirewallRuleNode(Level + 2, FirewallRules.StatusText(status), null, section) { Muted = status != FirewallStatus.Applied });
         foreach (var r in rules)
             section.Children.Add(new FirewallRuleNode(Level + 2, FirewallRules.Describe(r), r, section)
@@ -424,6 +426,8 @@ public sealed class ServerNode : TreeNode
                 Muted = !r.Enabled,
                 State = L.Get(!r.Enabled ? "Fw.RuleOff" : status == FirewallStatus.Applied ? "Fw.RuleActive" : "Fw.RulePending"),
             });
+        foreach (var p in presets)
+            section.Children.Add(new FirewallRuleNode(Level + 2, L.F("Fw.PresetNode", p.Name, p.Rules.Count(r => r.Enabled)), null, section));
     }
 
     /// <summary>Values returned by scripts (VLESS links etc.), first so they are easy to find.</summary>

@@ -35,6 +35,8 @@ public sealed class FirewallRule
     public List<string> Sources { get; set; } = [];
     public string? Comment { get; set; }
     public bool Enabled { get; set; } = true;
+    /// <summary>Sources that are the address of a server in Quaykeep: followed when that server's address changes.</summary>
+    public List<FirewallLink> Links { get; set; } = [];
 
     public bool WholeServer => string.IsNullOrWhiteSpace(Ports);
 
@@ -42,15 +44,37 @@ public sealed class FirewallRule
     {
         var c = (FirewallRule)MemberwiseClone();
         c.Sources = [.. Sources];
+        c.Links = Links.Select(l => l.Clone()).ToList();
         return c;
     }
+}
+
+/// <summary>A source address that belongs to a server in Quaykeep.</summary>
+public sealed class FirewallLink
+{
+    public Guid ServerId { get; set; }
+    public string Address { get; set; } = "";
+
+    public FirewallLink Clone() => (FirewallLink)MemberwiseClone();
 }
 
 public sealed class FirewallConfig
 {
     public List<FirewallRule> Rules { get; set; } = [];
+    /// <summary>Presets (<see cref="VaultData.FirewallPresets"/>) the server uses after its own rules.</summary>
+    public List<Guid> Presets { get; set; } = [];
 
-    public FirewallConfig Clone() => new() { Rules = Rules.Select(r => r.Clone()).ToList() };
+    public FirewallConfig Clone() => new() { Rules = Rules.Select(r => r.Clone()).ToList(), Presets = [.. Presets] };
+}
+
+/// <summary>A named rule set kept once and used by several servers; changing it changes all of them.</summary>
+public sealed class FirewallPreset
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    public List<FirewallRule> Rules { get; set; } = [];
+
+    public FirewallPreset Clone() => new() { Id = Id, Name = Name, Rules = Rules.Select(r => r.Clone()).ToList() };
 }
 
 /// <summary>What the server's Quaykeep chains hold now (read with iptables -S; part of the facts).</summary>

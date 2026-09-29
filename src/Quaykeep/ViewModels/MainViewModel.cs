@@ -593,6 +593,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public ServerEntry? ServerByIp(string ip) => _serversByIp.GetValueOrDefault(ip);
 
+    public IReadOnlyList<FirewallPreset> FirewallPresets => _host.Vault.IsUnlocked ? _host.Vault.Data.FirewallPresets : [];
+
     /// <summary>The whole chain the forward is part of: who forwards into it, this server, every following hop.</summary>
     public List<ForwardPoint> ForwardChain(ServerEntry from, PortForward f) =>
         _host.Vault.IsUnlocked ? ForwardChains.Full(from, f, _host.Vault.Data.Servers, ServerByIp) : ForwardChains.Downstream(from, f, ServerByIp);
@@ -799,9 +801,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         node.IsSelected = true;
     }
 
-    private void EditServer()
+    private async void EditServer()
     {
         if (SelectedServer == null) return;
+        var before = SelectedServer.Entry.Clone();
         var copy = SelectedServer.Entry.Clone();
         if (new ServerEditorWindow(_host, copy, isNew: false) { Owner = Owner }.ShowDialog() != true) return;
         _host.Vault.Update(d =>
@@ -817,6 +820,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         });
         _ = _host.Geo.RefreshAsync(copy.Id);
         _host.Health.CheckNow(copy.Id);
+
+        // a new address: firewall rules and forwards elsewhere that name the old one can follow it
+        if (before.Host.Trim() == copy.Host.Trim()) return;
+        var oldIp = await FirewallApplier.AddressOf(before);
+        var newIp = await FirewallApplier.AddressOf(new ServerEntry { Host = copy.Host });
+        if (oldIp != null && newIp != null) AddressChangeWindow.OfferIfUsed(_host, Owner, copy, oldIp, newIp);
     }
 
     private void DuplicateServer()

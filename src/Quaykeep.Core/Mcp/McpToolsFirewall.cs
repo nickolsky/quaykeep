@@ -16,7 +16,8 @@ public sealed partial class McpServer
     [
         new("list_firewall", "List firewall rules",
             "Quaykeep's firewall rules of the server (block these IPs / allow only these IPs, per port or the whole server), " +
-            "whether the server has them in force, and this PC's address as the server sees it.",
+            "the named presets it uses after its own rules (changed only in the app), whether the server has them in force, " +
+            "and this PC's address as the server sees it.",
             McpAccess.ReadOnly, Schema(ServerProp, new Prop("refresh", "boolean", "Read the state from the server now.")), ListFirewall),
         new("add_firewall_rule", "Add firewall rule",
             "Adds a rule and applies the server's rules (the user confirms it in Quaykeep). Order on the server: blocks, then " +
@@ -62,14 +63,16 @@ public sealed partial class McpServer
             s = Fresh(s);
         }
         var rules = s.Firewall?.Rules ?? [];
-        var status = FirewallRules.Status(s.Firewall, s.Facts?.Firewall);
+        var presets = _host.Vault.Read(d => d.FirewallPresets.Where(p => s.Firewall?.Presets.Contains(p.Id) == true).Select(p => p.Clone()).ToList());
+        var status = FirewallRules.Status(FirewallSets.Effective(s.Firewall, presets), s.Facts?.Firewall);
         return ToolResult.Data(new
         {
             status = status.ToString().ToLowerInvariant(),
             status_text = FirewallRules.StatusText(status),
             this_pc = me,
             rules = rules.Select(RuleData).ToList(),
-        }, $"{rules.Count} rules, {status}");
+            presets = presets.Select(p => new { name = p.Name, rules = p.Rules.Select(RuleData).ToList() }).ToList(),
+        }, $"{rules.Count} rules, {presets.Count} presets, {status}");
     }
 
     private async Task<ToolResult> AddFirewallRule(ToolCall c)
@@ -113,8 +116,9 @@ public sealed partial class McpServer
     private async Task<ToolResult> ChangeFirewall(ToolCall c, FirewallConfig config, string confirmText, object changed)
     {
         var s = c.S;
+        var effective = _host.Vault.Read(d => FirewallSets.Effective(config, d.FirewallPresets));
         var me = await Task.Run(() => FirewallSvc.ClientAddress(s), c.Ct);
-        if (me != null && FirewallRules.CutsSsh(config, s.Port, me)) return ToolResult.Fail(L.F("Mcp.FirewallCutsSsh", me));
+        if (me != null && FirewallRules.CutsSsh(effective, s.Port, me)) return ToolResult.Fail(L.F("Mcp.FirewallCutsSsh", me));
         if (!await Confirm(c, confirmText)) throw new McpDeniedException(L.Get("Mcp.UserDeclined"));
 
         var previous = s.Firewall?.Clone();
@@ -127,7 +131,7 @@ public sealed partial class McpServer
         FirewallResult result;
         try
         {
-            result = await Task.Run(() => FirewallSvc.Apply(s, config, l => { lock (log) log.Add(l); }), c.Ct);
+            result = await Task.Run(() => FirewallSvc.Apply(s, effective, l => { lock (log) log.Add(l); }), c.Ct);
         }
         catch
         {

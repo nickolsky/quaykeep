@@ -136,6 +136,8 @@ public sealed class VaultData
     public List<ScriptEntry> Scripts { get; set; } = [];
     /// <summary>Built-in scripts the user deleted; they are not added again.</summary>
     public List<string> RemovedBuiltins { get; set; } = [];
+    /// <summary>Named firewall rule sets that servers use together with their own rules.</summary>
+    public List<FirewallPreset> FirewallPresets { get; set; } = [];
 }
 
 public enum ScriptKind
