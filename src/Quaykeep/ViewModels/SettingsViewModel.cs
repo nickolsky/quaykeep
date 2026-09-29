@@ -208,6 +208,16 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
         }
     }
 
+    public bool McpHideSecrets
+    {
+        get => M.HideScriptSecrets;
+        set
+        {
+            M.HideScriptSecrets = value;
+            Save();
+        }
+    }
+
     public int McpLogMaxMb
     {
         get => M.LogMaxMb;

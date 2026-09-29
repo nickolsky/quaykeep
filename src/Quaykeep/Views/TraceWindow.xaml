@@ -1,0 +1,87 @@
+<Window x:Class="Quaykeep.Views.TraceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:Quaykeep.Localization"
+        Width="1080" Height="720" MinWidth="720" MinHeight="460"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="True">
+    <Grid Margin="24,16,24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+        <WrapPanel Grid.Row="1" Margin="0,10,0,10">
+            <RadioButton x:Name="FromPc" Content="{l:Tr Trace.FromPc}" GroupName="dir" IsChecked="True" Margin="0,0,20,0"
+                         VerticalAlignment="Center" Checked="OnModeChanged" />
+            <RadioButton x:Name="FromServer" GroupName="dir" VerticalAlignment="Center" Checked="OnModeChanged" Margin="0,0,8,0" />
+            <ComboBox x:Name="TargetBox" IsEditable="True" Width="260" VerticalAlignment="Center" IsEnabled="False" Margin="0,0,16,0"
+                      ToolTip="{l:Tr Trace.TargetTip}" DisplayMemberPath="Label" />
+            <Button x:Name="StartButton" Content="{l:Tr Trace.Start}" Click="OnStart" Style="{DynamicResource AccentButtonStyle}" MinWidth="110" />
+            <ProgressBar x:Name="Busy" IsIndeterminate="True" Width="100" Height="4" Margin="16,0,0,0" Visibility="Hidden" VerticalAlignment="Center" />
+            <TextBlock x:Name="StateText" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="12,0,0,0" />
+        </WrapPanel>
+
+        <DataGrid Grid.Row="2" x:Name="HopsGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                  HeadersVisibility="Column" GridLinesVisibility="None" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="40" />
+                <DataGridTextColumn Header="{l:Tr Trace.ColAddress}" Binding="{Binding Address}" Width="130" />
+                <DataGridTextColumn Header="{l:Tr Trace.ColName}" Binding="{Binding HostName}" Width="200">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding HostName}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="{l:Tr Trace.ColTime}" Binding="{Binding Times}" Width="130" />
+                <DataGridTextColumn Header="{l:Tr Trace.ColNetwork}" Binding="{Binding Network}" Width="220">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding Network}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="{l:Tr Trace.ColLocation}" Binding="{Binding Location}" Width="160" />
+                <DataGridTextColumn Header="{l:Tr Trace.ColNote}" Binding="{Binding Note}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding Note}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3" Margin="0,12,0,0" Padding="14,10" CornerRadius="6" BorderThickness="1" MaxHeight="220"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="{l:Tr Trace.Reading}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <ItemsControl x:Name="NotesList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2,0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <DockPanel Grid.Row="4" Margin="0,14,0,0">
+            <TextBlock x:Name="PrivacyText" Style="{StaticResource Hint}" Text="{l:Tr Trace.Privacy}" VerticalAlignment="Center" MaxWidth="560" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{l:Tr ScriptRun.Copy}" Click="OnCopy" MinWidth="100" Margin="0,0,8,0" />
+                <Button Content="{l:Tr Common.Close}" IsCancel="True" MinWidth="100" Click="OnClose" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

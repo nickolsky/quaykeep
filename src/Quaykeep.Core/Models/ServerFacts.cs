@@ -26,6 +26,14 @@ public sealed class ServerFacts
     /// <summary>The server's own addresses with their prefix ("10.0.0.5/24"; ip -o addr, global scope, no Docker bridges).</summary>
     public List<string> Addresses { get; set; } = [];
     public GeoInfo? Geo { get; set; }
+    /// <summary>The registry's record of the server's IP (RDAP): read once, again when the IP changes or on request.</summary>
+    public WhoisInfo? Whois { get; set; }
+
+    /// <summary>
+    /// Who hosts the server: the organization that runs its network (AS), else the address block's owner from whois.
+    /// The block's owner is often not the hoster (leased addresses, a registry's own blocks), so it comes second.
+    /// </summary>
+    public string? Hoster => Geo?.Org ?? Geo?.Isp ?? Whois?.Owner;
 
     /// <summary>"Ubuntu 24.04" style label.</summary>
     public string? OsLabel =>
@@ -40,11 +48,42 @@ public sealed class GeoInfo
     public string? Region { get; set; }
     public string? City { get; set; }
     public string? Isp { get; set; }
+    /// <summary>The network's autonomous system: number and the organization that runs it (usually the hoster).</summary>
+    public int? Asn { get; set; }
+    public string? Org { get; set; }
+    /// <summary>The organization's web domain ("hetzner.com"), when the GeoIP service knows it.</summary>
+    public string? Domain { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public string? Language { get; set; }
     public DateTime Updated { get; set; }
 
     public string Label => string.Join(", ", new[] { Country, Region, City }
         .Where(x => !string.IsNullOrWhiteSpace(x)).Distinct());
+}
+
+/// <summary>An IP network's record at its regional registry (RIPE, ARIN…), read over RDAP.</summary>
+public sealed class WhoisInfo
+{
+    public string Ip { get; set; } = "";
+    /// <summary>"RIPE NCC", "ARIN"…</summary>
+    public string? Registry { get; set; }
+    /// <summary>The registry's text whois server (port 43), for the raw record.</summary>
+    public string? Port43 { get; set; }
+    public string? Handle { get; set; }
+    public string? NetName { get; set; }
+    /// <summary>"203.0.113.0/24" (or several), else the range.</summary>
+    public string? Network { get; set; }
+    public string? Range { get; set; }
+    public string? Owner { get; set; }
+    public string? OwnerHandle { get; set; }
+    public string? Country { get; set; }
+    public string? Address { get; set; }
+    public string? AbuseEmail { get; set; }
+    public string? Description { get; set; }
+    public DateTime? Registered { get; set; }
+    public DateTime? Changed { get; set; }
+    public DateTime Updated { get; set; }
 }
 
 public sealed class ContainerInfo

@@ -63,6 +63,23 @@ On first start the program asks you to choose a master password and offers to st
   on the server.
 - **Ping…**: ICMP ping from this PC once a second in its own window: time, TTL, loss, min / avg / max. Many VPN servers drop
   ICMP, so monitoring does not use it; when there are no replies, the window shows the state of the SSH port instead.
+- **Traceroute…**: the route hop by hop, from this PC to the server (like `tracert`), or **from the server** over SSH to
+  this PC, another server or any address (`traceroute`, installed when missing, or `tracepath`).
+  - **Each hop** gets its reverse DNS name, network (AS and provider) and location. The hop addresses are looked up in
+    one batch at ip-api.com.
+  - **The reading** below the table:
+    - the route by provider ("Home ISP (Moscow, RU) → Backbone (Frankfurt, DE) → Hoster (Falkenstein, DE)");
+    - the countries on the way;
+    - where the biggest step in delay is (usually the long-distance link);
+    - hops whose GeoIP location can't match how fast they answer (a round trip needs at least 1 ms per 100 km),
+      marked "?" and left out of the path;
+    - hops that don't answer, whether the destination was reached, and a note when a VPN on this PC answers for every
+      address.
+- **Whois…**: the hoster, the network (AS, organization, domain), and the registry's record of the server's IP (RDAP:
+  network and name, owner and address, abuse contact, dates), plus the full text record from the registry's whois
+  server (port 43).
+  - It is read once per IP, again when the IP changes, and on "Refresh" or "Refresh info".
+  - **Find the control panel**: a Google search for the hoster's control panel login.
 - **"Check availability now"** and **"Test connection"**: the first only opens a TCP connection to the SSH port (the sshd
   greeting) and to the monitored ports, without logging in, and records the result in the uptime history; the second does
   a full SSH login with the saved password or key, runs `uname -a` and shows the result in a window.
@@ -82,7 +99,7 @@ On first start the program asks you to choose a master password and offers to st
 - **Port forwards** (iptables DNAT, the "Port forwards" button): add, edit (double-click a row: the old forward is removed and the
   new one created by one script; if the new one fails, the old one comes back), delete.
   The "Monitoring" checkbox in a row puts the port under monitoring. Forwards across several servers are shown as a chain:
-  `A:443 → B:8443 → C:443 (nginx)`, in the window, in the "Forwards" column and in the tooltip of a forward in the tree.
+  `A:443 → B:8443 → C:443 (nginx)`, in the window, on the network map and in the tooltip of a forward in the tree.
   "Go to …" in a forward's menu (or a double click) jumps to the server at the other end, straight to the next hop.
 - **CPU / memory / disk**: after every successful check the program logs in over SSH and reads `/proc`
   (the CPU, "Memory" and "Disk" columns; disk is free space on `/`; the tooltip has load, disk, uptime).
@@ -95,7 +112,10 @@ On first start the program asks you to choose a master password and offers to st
   copy, open the file in the editor, `crontab -e` in a terminal, timer status and log. From the console: `qk cron <server>`.
 - **Reboot**: the "Reboot" button (and the server menu item) after a confirmation; the program waits for the server to
   come back and says in the tray how many seconds it took (or that it did not come back within 10 minutes).
-- **Region**: country and city by IP (the online service ipwho.is, ip-api.com as a fallback; cached for 30 days, can be turned off).
+- **Region** and **Hoster**: country and city by IP, and who runs the network: the organization behind the AS, else the
+  address block's owner from whois. The data comes from the online service ipwho.is (ip-api.com as a fallback), cached for
+  30 days; whois comes from the registries through rdap.org, once per address. It can be turned off. The tooltip has the AS,
+  domain, block owner and abuse contact.
 - **Port forwards (iptables)**: "Port forwards…" shows the existing DNAT rules and adds new ones
   (`443 → another server:443`, tcp/udp, ranges): DNAT + MASQUERADE + FORWARD, `ip_forward`, saved with
   netfilter-persistent / iptables-save (offers to install iptables-persistent when needed).
@@ -242,8 +262,14 @@ each level includes the previous ones:
 
 - Reboots and deletions (of a container, file or folder), as well as stopping SSH, are first shown in an
   "Allow / Deny" window (no answer in 2 minutes means deny; can be turned off in Settings).
-- System folders (`/`, `/etc`, `/usr`…) can never be deleted by an agent at any level; passwords in script results
-  are visible only with full access.
+- System folders (`/`, `/etc`, `/usr`…) can never be deleted by an agent at any level.
+- **Credentials from scripts** are visible only with full access, in `script_results`, `get_job` and the output
+  tail of a job. That covers passwords, keys, tokens and login links (`vless://`, `hysteria2://`, `vpn://`, or a URL
+  with `user:password@`).
+  - "Never show AI agents the passwords, keys and login links from scripts" in the settings hides them even at full
+    access.
+  - With full access an agent can still read them on the server itself (`run_command`, `read_file`), so for strict
+    protection give it less than full access.
 - Servers behind a jump host / with extra ssh parameters are not available to agents (except their status).
 - **Log** of every call, including denied ones: "Agent log…" in the server menu or in Settings, in real
   time, per server or for all. The "Console" view shows the log like a terminal: every call has a prompt

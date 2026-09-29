@@ -55,9 +55,9 @@ public abstract class TreeNode(int level) : ObservableObject
     public virtual string Region => "";
     public virtual string CountryCode => "";
     public virtual string? RegionTip => null;
-    public virtual string Forwards => "";
-    public virtual string? ForwardsTip => null;
-    public virtual string Auth => "";
+    /// <summary>Who hosts the server (from GeoIP / whois).</summary>
+    public virtual string Hoster => "";
+    public virtual string? HosterTip => null;
     /// <summary>0..100 for the small usage bars; null hides the bar.</summary>
     public virtual double? CpuPercent => null;
     public virtual string Cpu => "";
@@ -143,8 +143,6 @@ public sealed class ServerNode : TreeNode
     public override string Address => Entry.Display;
     public override string Notes => Entry.Notes?.ReplaceLineEndings(" ") ?? "";
 
-    public override string Auth => Entry.Auth == AuthMode.Key ? "🔑 " + _vm.KeyName(Entry.KeyId) : L.Get("Auth.Password");
-
     public override string LastConnected => Entry.LastConnected?.ToString("g", L.Culture) ?? "—";
 
     public override string Os => Entry.Facts?.OsLabel ?? (Loading ? "…" : "");
@@ -188,8 +186,29 @@ public sealed class ServerNode : TreeNode
         }
     }
 
-    public override string Forwards => string.Join(",  ", _vm.ForwardSummary(Entry));
-    public override string? ForwardsTip => Forwards.Length == 0 ? null : string.Join("\n", _vm.ForwardSummary(Entry));
+    public override string Hoster => Entry.Facts?.Hoster ?? "";
+
+    public override string? HosterTip
+    {
+        get
+        {
+            var g = Entry.Facts?.Geo;
+            var w = Entry.Facts?.Whois;
+            if (g == null && w == null) return null;
+            var lines = new List<string>();
+            if (Entry.Facts!.Hoster is { } h) lines.Add(h);
+            if (g?.Asn is { } asn) lines.Add($"AS{asn}" + (g.Org != null ? " · " + g.Org : ""));
+            if (g?.Domain != null) lines.Add(g.Domain);
+            if (w != null)
+            {
+                if (w.Owner != null) lines.Add(L.F("Whois.OwnerLine", w.Registry ?? "whois", w.Owner));
+                if (w.Network != null) lines.Add(L.F("Whois.NetworkLine", w.Network, w.NetName ?? ""));
+                if (w.AbuseEmail != null) lines.Add(L.F("Whois.AbuseLine", w.AbuseEmail));
+            }
+            lines.Add(L.Get("Whois.MoreTip"));
+            return string.Join("\n", lines);
+        }
+    }
 
     public override string Dot => Health.State switch
     {
@@ -210,12 +229,6 @@ public sealed class ServerNode : TreeNode
         HealthState.NotChecked => L.Get("Health.JumpHost"),
         _ => L.Get("Health.Unknown"),
     };
-
-    public void RaiseForwardsChanged()
-    {
-        OnPropertyChanged(nameof(Forwards));
-        OnPropertyChanged(nameof(ForwardsTip));
-    }
 
     public IReadOnlyDictionary<int, ServerHealth> PortHealth { get; private set; } = new Dictionary<int, ServerHealth>();
 
@@ -520,8 +533,18 @@ public sealed class ContainerNode : TreeNode
     public override string Address => Info.Image;
     /// <summary>Status plus a mark when the container starts on boot.</summary>
     public override string Os => Info.Autostart ? Info.Status + "  ⟳" : Info.Status;
-    public override string Forwards => Info.Ports;
-    public override string? ForwardsTip => Info.Ports.Length == 0 ? null : Info.Ports.Replace(", ", "\n");
+    /// <summary>Published ports as chips: "8080→80" (the IPv4 and IPv6 bindings of a port are one chip).</summary>
+    public override IReadOnlyList<PortChip> PortChips => Info.Ports.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(p =>
+        {
+            var arrow = p.IndexOf("->", StringComparison.Ordinal);
+            if (arrow < 0) return (Label: p.Split('/')[0], Tip: p);
+            var host = p[..arrow];
+            return (Label: host[(host.LastIndexOf(':') + 1)..] + "→" + p[(arrow + 2)..].Split('/')[0], Tip: p);
+        })
+        .GroupBy(x => x.Label)
+        .Select(g => new PortChip(g.Key, Info.IsRunning ? "ok" : "off", string.Join("\n", g.Select(x => x.Tip))))
+        .ToList();
 }
 
 public sealed class ServiceNode : TreeNode

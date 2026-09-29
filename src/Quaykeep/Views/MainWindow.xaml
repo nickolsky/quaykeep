@@ -376,7 +376,7 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="{l:Tr Col.Os}" Width="110">
+                                <GridViewColumn Header="{l:Tr Col.Os}" Width="125">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Os}" ToolTip="{Binding OsTip}" Style="{StaticResource CellText}" />
@@ -471,17 +471,10 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="{l:Tr Col.Forwards}" Width="160">
+                                <GridViewColumn Header="{l:Tr Col.Hoster}" Width="170">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Forwards}" ToolTip="{Binding ForwardsTip}" Style="{StaticResource CellText}" />
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                                <GridViewColumn Header="{l:Tr Col.Auth}" Width="100">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Auth}" Style="{StaticResource CellText}" />
+                                            <TextBlock Text="{Binding Hoster}" ToolTip="{Binding HosterTip}" Style="{StaticResource CellText}" />
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
@@ -525,6 +518,12 @@
                                     <Separator Style="{StaticResource SepServer}" />
                                     <MenuItem Header="{l:Tr Ctx.Ping}" Command="{Binding PingCommand}" Style="{StaticResource MiServer}"
                                               ToolTip="{l:Tr Ctx.PingTip}" />
+                                    <MenuItem Header="{l:Tr Ctx.Trace}" Command="{Binding TraceCommand}" Style="{StaticResource MiServer}"
+                                              ToolTip="{l:Tr Ctx.TraceTip}" />
+                                    <MenuItem Header="{l:Tr Ctx.Whois}" Command="{Binding WhoisCommand}" Style="{StaticResource MiServer}"
+                                              ToolTip="{l:Tr Ctx.WhoisTip}" />
+                                    <MenuItem Header="{Binding FindPanelHeader}" Command="{Binding FindPanelCommand}" Style="{StaticResource MiServer}"
+                                              ToolTip="{l:Tr Ctx.FindPanelTip}" />
                                     <MenuItem Header="{l:Tr Ctx.CheckNow}" Command="{Binding CheckNowCommand}" Style="{StaticResource MiServer}"
                                               ToolTip="{l:Tr Ctx.CheckNowTip}" />
                                     <MenuItem Header="{l:Tr Ctx.Test}" Command="{Binding TestCommand}" Style="{StaticResource MiServer}"
@@ -908,6 +907,8 @@
                             <TextBlock Style="{StaticResource Hint}" Margin="0,4,0,0" TextWrapping="Wrap" Text="{l:Tr Settings.McpHttpHint}" />
 
                             <CheckBox Content="{l:Tr Settings.McpConfirm}" IsChecked="{Binding McpConfirm}" Margin="0,12,0,0" />
+                            <CheckBox Content="{l:Tr Settings.McpHideSecrets}" IsChecked="{Binding McpHideSecrets}" Margin="0,8,0,0" />
+                            <TextBlock Style="{StaticResource Hint}" Margin="28,2,0,0" TextWrapping="Wrap" Text="{l:Tr Settings.McpHideSecretsHint}" />
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                 <TextBlock Text="{l:Tr Settings.McpLogMb}" VerticalAlignment="Center" />
                                 <TextBox Width="60" Margin="10,0,24,0" Text="{Binding McpLogMaxMb, UpdateSourceTrigger=LostFocus}" />

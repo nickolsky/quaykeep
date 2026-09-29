@@ -160,7 +160,8 @@ public sealed partial class McpServer
     [GeneratedRegex(@"^[0-9A-Za-z:.+\- T]{1,40}$")]
     private static partial Regex SinceValue();
 
-    private static readonly Regex Secretish = new("PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE|KEY", RegexOptions.IgnoreCase);
+    /// <summary>Credentials among script results go to agents with full access only, and to none when the user says so.</summary>
+    private bool ShowSecrets(ServerEntry s) => s.McpAccess == McpAccess.Full && !_host.Settings().HideScriptSecrets;
 
     // ---------- read only ----------
 
@@ -511,9 +512,13 @@ public sealed partial class McpServer
         lock (job.Output) output = job.Output.ToString();
         var lines = c.Int("lines", 100, 1, 2000);
         var tail = string.Join('\n', ScriptRunner.CleanOutput(output).TrimEnd().Split('\n').TakeLast(lines));
-        // values that look like credentials are shown only to agents with full access (they are in Quaykeep anyway)
-        var full = c.S.McpAccess == McpAccess.Full;
-        var results = job.Results.ToDictionary(r => r.Key, r => full || !Secretish.IsMatch(r.Key) ? r.Value : L.Get("Mcp.SecretHidden"));
+        // credentials are shown only to agents with full access (they are in Quaykeep anyway), unless the user hides them from all
+        var show = ShowSecrets(c.S);
+        var hidden = L.Get(c.S.McpAccess == McpAccess.Full ? "Mcp.SecretHiddenAlways" : "Mcp.SecretHidden");
+        var secret = job.Results.Where(r => !show && ScriptSecrets.IsSecret(r.Key, r.Value)).Select(r => r.Key).ToHashSet();
+        var results = job.Results.ToDictionary(r => r.Key, r => secret.Contains(r.Key) ? hidden : r.Value);
+        // the scripts print their links and passwords too
+        if (!show) tail = ScriptSecrets.Redact(tail, job.Results.Where(r => secret.Contains(r.Key)).Select(r => r.Value), hidden);
         return Task.FromResult(ToolResult.Data(new
         {
             job_id = job.Id, script = job.Script, state = job.State, exit_code = job.ExitCode, error = job.Error,

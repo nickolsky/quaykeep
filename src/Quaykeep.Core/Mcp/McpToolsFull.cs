@@ -49,7 +49,7 @@ public sealed partial class McpServer
             McpAccess.Full, Schema(ServerProp, new Prop("remote_path", "string", "Remote file or folder.", true),
                 new Prop("local_dir", "string", "Local directory (full Windows path) inside an allowed folder.", true)), Download, ReadOnly: false),
         new("script_results", "Script results",
-            "Values saved by install scripts on this server in Quaykeep: VPN links, addresses, generated admin passwords.",
+            "Values saved by install scripts on this server in Quaykeep: VPN links, addresses, generated admin passwords (credentials can be hidden by the user).",
             McpAccess.Full, Schema(ServerProp), ScriptResults),
     ];
 
@@ -207,9 +207,14 @@ public sealed partial class McpServer
         return job.State == TransferState.Done && job.Failures.Count == 0 ? new ToolResult(text.ToString()) : ToolResult.Fail(text.ToString());
     }
 
-    private Task<ToolResult> ScriptResults(ToolCall c) =>
-        Task.FromResult(ToolResult.Data(c.S.Attributes.Select(a => new
+    private Task<ToolResult> ScriptResults(ToolCall c)
+    {
+        var show = ShowSecrets(c.S);
+        return Task.FromResult(ToolResult.Data(c.S.Attributes.Select(a => new
         {
-            key = a.Key, label = a.Label, value = a.Value, source = a.Source, updated = a.Updated,
+            key = a.Key, label = a.Label,
+            value = show || !ScriptSecrets.IsSecret(a.Key, a.Value) ? a.Value : L.Get("Mcp.SecretHiddenAlways"),
+            source = a.Source, updated = a.Updated,
         }).ToList(), $"{c.S.Attributes.Count} values"));
+    }
 }

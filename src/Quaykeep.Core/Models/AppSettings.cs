@@ -96,6 +96,8 @@ public sealed class McpSettings
     public string? HttpToken { get; set; }
     /// <summary>Ask in the app before a reboot or a deletion.</summary>
     public bool ConfirmDangerous { get; set; } = true;
+    /// <summary>Passwords, keys and login links from install scripts go to no agent, not even with full access.</summary>
+    public bool HideScriptSecrets { get; set; }
     /// <summary>Agent log per server: size limit (MB, all files together) and how long files are kept (days).</summary>
     public int LogMaxMb { get; set; } = 10;
     public int LogRetentionDays { get; set; } = 30;

@@ -9,6 +9,7 @@ using Quaykeep.Core;
 using Quaykeep.Core.Backup;
 using Quaykeep.Core.Crypto;
 using Quaykeep.Core.Forwarding;
+using Quaykeep.Core.Geo;
 using Quaykeep.Core.Inventory;
 using Quaykeep.Core.Models;
 using Quaykeep.Core.Monitoring;
@@ -70,6 +71,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         DeleteServerCommand = new RelayCommand(DeleteServer, HasServer);
         CopyToClipboardCommand = new RelayCommand(p => CopyToClipboard(p as CopyTarget), _ => SelectedServer != null);
         PingCommand = new RelayCommand(OpenPing, () => SelectedServer != null);
+        TraceCommand = new RelayCommand(OpenTrace, () => SelectedServer != null);
+        WhoisCommand = new RelayCommand(OpenWhois, () => SelectedServer != null);
+        FindPanelCommand = new RelayCommand(FindPanel, () => HosterSearch.Query(SelectedServer?.Entry.Facts) != null);
         SetupKeyCommand = new RelayCommand(SetupKey, () => HasServer() && !string.IsNullOrEmpty(SelectedServer!.Entry.Password));
         TestCommand = new RelayCommand(Test, HasServer);
         RefreshInfoCommand = new RelayCommand(() => _host.RefreshServer(SelectedServer!.Entry.Id), HasServer);
@@ -281,6 +285,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand DeleteServerCommand { get; }
     public ICommand CopyToClipboardCommand { get; }
     public ICommand PingCommand { get; }
+    public ICommand TraceCommand { get; }
+    public ICommand WhoisCommand { get; }
+    public ICommand FindPanelCommand { get; }
+
+    /// <summary>"Find Hetzner Online GmbH control panel" once the hoster is known.</summary>
+    public string FindPanelHeader => SelectedServer?.Entry.Facts?.Hoster is { } h ? L.F("Ctx.FindPanelOf", h) : L.Get("Ctx.FindPanel");
     public ICommand SetupKeyCommand { get; }
     public ICommand TestCommand { get; }
     public ICommand RefreshInfoCommand { get; }
@@ -369,7 +379,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (entry == null) return;
         RebuildIpMap();
         if (_serverNodes.TryGetValue(id, out var node)) node.Update(entry);
-        foreach (var n in _serverNodes.Values) n.RaiseForwardsChanged();
     });
 
     private void OnInventoryRunning(object? s, Guid id) => Ui(() =>
@@ -632,6 +641,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>Fills "Install ▸" for the selected server: scripts for its OS first, the rest under "Other".</summary>
     public void PrepareContextMenu()
     {
+        OnPropertyChanged(nameof(FindPanelHeader));
         PrepareMonitorMenu();
         PrepareMcpMenu();
         PrepareCopyMenu();
@@ -819,7 +829,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             copy.Facts = d.Servers[i].Facts; // collected in the meantime
             copy.Attributes = d.Servers[i].Attributes; // a script may have finished while the editor was open
             copy.ScriptRuns = d.Servers[i].ScriptRuns;
-            if (hostChanged && copy.Facts != null) copy.Facts.Geo = null;
+            if (hostChanged && copy.Facts != null) (copy.Facts.Geo, copy.Facts.Whois) = (null, null);
             d.Servers[i] = copy;
         });
         _ = _host.Geo.RefreshAsync(copy.Id);
@@ -955,6 +965,47 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         catch (Exception)
         {
             // the clipboard is held by another program: leave it
+        }
+    }
+
+    private void OpenTrace()
+    {
+        if (SelectedServer?.Entry is not { } server) return;
+        var existing = Application.Current.Windows.OfType<TraceWindow>().FirstOrDefault(w => w.ServerId == server.Id);
+        if (existing != null)
+        {
+            existing.Activate();
+            return;
+        }
+        new TraceWindow(_host, server.Clone()) { Owner = Owner }.Show();
+    }
+
+    private void OpenWhois()
+    {
+        if (SelectedServer?.Entry is not { } server) return;
+        var existing = Application.Current.Windows.OfType<WhoisWindow>().FirstOrDefault(w => w.ServerId == server.Id);
+        if (existing != null)
+        {
+            existing.Activate();
+            return;
+        }
+        new WhoisWindow(_host, server.Id) { Owner = Owner }.Show();
+    }
+
+    private void FindPanel()
+    {
+        if (HosterSearch.Query(SelectedServer?.Entry.Facts) is { } q) OpenUrl(HosterSearch.Url(q));
+    }
+
+    public static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception)
+        {
+            // no browser registered
         }
     }
 
