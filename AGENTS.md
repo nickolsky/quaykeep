@@ -88,8 +88,9 @@ tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some s
   - `FirewallCheck` must follow the order of `FirewallRules.Payload`. Change the two together.
   - A private address maps to a server only on the sender's network (`AddressBook.Find(ip, from)`).
   - Drawn links wait in a `MapPlan` until Apply, which goes firewall first, then removals, then adds.
-- **Online lookups** (`Geo/`): GeoIP (ipwho.is → ip-api.com), whois (RDAP via rdap.org; the port-43 text only in the
-  whois window) and the batch lookup of traceroute hops (ip-api.com) all obey `Settings.GeoIpEnabled`.
+- **Online lookups** (`Geo/`): GeoIP from the service in `Settings.GeoProvider` (ipwho.is over HTTPS, or ip-api.com,
+  which is plain HTTP but batches traceroute hops; no fallback between them), whois (RDAP via rdap.org; the port-43
+  text only in the whois window) and traceroute hop lookups all obey `Settings.GeoIpEnabled`.
   - Whois is stored once per IP (`ServerFacts.Whois`). `ServerFacts.Hoster` prefers the AS operator over the block
     owner, because leased or registry-owned blocks name someone else.
   - Traceroute and its reading are in `Monitoring/TraceRoute.cs` and `TraceAnalysis.cs` (unit-tested; `trace` lab test).

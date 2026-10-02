@@ -65,7 +65,7 @@ public partial class TraceWindow : Window
             FromServer.IsEnabled = false;
             FromServer.ToolTip = L.Get("Inventory.JumpHost");
         }
-        if (!host.Geo.Enabled) PrivacyText.Text = L.Get("Trace.GeoOff");
+        PrivacyText.Text = host.Geo.Enabled ? L.F("Trace.Privacy", host.Geo.ProviderName) : L.Get("Trace.GeoOff");
         Loaded += (_, _) => OnStart(this, new RoutedEventArgs());
         Closing += (_, _) => _cts?.Cancel();
     }

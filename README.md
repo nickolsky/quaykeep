@@ -65,8 +65,8 @@ On first start the program asks you to choose a master password and offers to st
   ICMP, so monitoring does not use it; when there are no replies, the window shows the state of the SSH port instead.
 - **Traceroute…**: the route hop by hop, from this PC to the server (like `tracert`), or **from the server** over SSH to
   this PC, another server or any address (`traceroute`, installed when missing, or `tracepath`).
-  - **Each hop** gets its reverse DNS name, network (AS and provider) and location. The hop addresses are looked up in
-    one batch at ip-api.com.
+  - **Each hop** gets its reverse DNS name, network (AS and provider) and location, from the lookup service chosen in
+    the settings (see Region and Hoster below).
   - **The reading** below the table:
     - the route by provider ("Home ISP (Moscow, RU) → Backbone (Frankfurt, DE) → Hoster (Falkenstein, DE)");
     - the countries on the way;
@@ -113,9 +113,12 @@ On first start the program asks you to choose a master password and offers to st
 - **Reboot**: the "Reboot" button (and the server menu item) after a confirmation; the program waits for the server to
   come back and says in the tray how many seconds it took (or that it did not come back within 10 minutes).
 - **Region** and **Hoster**: country and city by IP, and who runs the network: the organization behind the AS, else the
-  address block's owner from whois. The data comes from the online service ipwho.is (ip-api.com as a fallback), cached for
-  30 days; whois comes from the registries through rdap.org, once per address. It can be turned off. The tooltip has the AS,
-  domain, block owner and abuse contact.
+  address block's owner from whois. The tooltip has the AS, domain, block owner and abuse contact.
+  - **Lookup service** (Settings), one of:
+    - **ipwho.is** (HTTPS, the default): traceroute hops are looked up one request each;
+    - **ip-api.com**: plain HTTP on its free tier, but it looks up all the hops in one request;
+    - **off**: no online lookups at all.
+  - Locations are cached for 30 days. Whois comes from the registries through rdap.org over HTTPS, once per address.
 - **Port forwards (iptables)**: "Port forwards…" shows the existing DNAT rules and adds new ones
   (`443 → another server:443`, tcp/udp, ranges): DNAT + MASQUERADE + FORWARD, `ip_forward`, saved with
   netfilter-persistent / iptables-save (offers to install iptables-persistent when needed).

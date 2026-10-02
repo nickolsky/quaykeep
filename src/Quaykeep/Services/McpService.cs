@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using Quaykeep.Core;
 using Quaykeep.Core.Mcp;
 using Quaykeep.Core.Models;
+using Quaykeep.Core.Storage;
 using Quaykeep.Views;
 
 namespace Quaykeep.Services;
@@ -79,20 +80,30 @@ public sealed class McpService : IDisposable
             return w.Allowed;
         }).Task;
 
-    /// <summary>The token HTTP clients must send (made the first time it is needed).</summary>
+    private string? _token;
+
+    /// <summary>
+    /// The token HTTP clients must send (made the first time it is needed). settings.json keeps it encrypted for this
+    /// Windows user; a plain one from before is encrypted on first use, and one that can't be decrypted is replaced.
+    /// </summary>
     public string Token()
     {
-        if (string.IsNullOrEmpty(Settings.HttpToken))
+        if (_token != null) return _token;
+        var stored = Settings.HttpToken;
+        var token = UserSecret.Unprotect(stored);
+        if (token == null || !UserSecret.IsProtected(stored))
         {
-            Settings.HttpToken = NewToken();
+            token ??= NewToken();
+            Settings.HttpToken = UserSecret.Protect(token);
             _host.SettingsStore.Save();
         }
-        return Settings.HttpToken!;
+        return _token = token;
     }
 
     public void RegenerateToken()
     {
-        Settings.HttpToken = NewToken();
+        _token = NewToken();
+        Settings.HttpToken = UserSecret.Protect(_token);
         _host.SettingsStore.Save();
         StateChanged?.Invoke(this, EventArgs.Empty);
     }

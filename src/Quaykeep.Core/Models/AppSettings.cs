@@ -70,8 +70,10 @@ public sealed class AppSettings
     public DateTime? LastUpdateCheck { get; set; }
     /// <summary>The version the tray already told about.</summary>
     public string? NotifiedUpdate { get; set; }
-    /// <summary>Look up server location via an online GeoIP service.</summary>
+    /// <summary>Look up server location, hoster and whois, and traceroute hops, via online services (off = none of them).</summary>
     public bool GeoIpEnabled { get; set; } = true;
+    /// <summary>Which GeoIP service answers those lookups.</summary>
+    public GeoProvider GeoProvider { get; set; } = GeoProvider.IpWhoIs;
     /// <summary>Collect OS / containers / services / forwards in the background.</summary>
     public bool AutoInventory { get; set; } = true;
     /// <summary>Log in after each successful check to read CPU / memory / disk usage.</summary>
@@ -92,7 +94,7 @@ public sealed class McpSettings
     /// <summary>Streamable HTTP on 127.0.0.1 (besides stdio through qk.exe mcp).</summary>
     public bool HttpEnabled { get; set; }
     public int HttpPort { get; set; } = DefaultPort;
-    /// <summary>Bearer token for HTTP; made on first use.</summary>
+    /// <summary>Bearer token for HTTP; made on first use, kept encrypted for this Windows user (<see cref="Storage.UserSecret"/>).</summary>
     public string? HttpToken { get; set; }
     /// <summary>Ask in the app before a reboot or a deletion.</summary>
     public bool ConfirmDangerous { get; set; } = true;
@@ -101,4 +103,11 @@ public sealed class McpSettings
     /// <summary>Agent log per server: size limit (MB, all files together) and how long files are kept (days).</summary>
     public int LogMaxMb { get; set; } = 10;
     public int LogRetentionDays { get; set; } = 30;
+}
+
+/// <summary>GeoIP services: ipwho.is over HTTPS, or ip-api.com, which is faster for many addresses but plain HTTP on its free tier.</summary>
+public enum GeoProvider
+{
+    IpWhoIs,
+    IpApi,
 }

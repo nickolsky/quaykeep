@@ -683,7 +683,14 @@
                             <CheckBox Content="{l:Tr Settings.CollectMetrics}" IsChecked="{Binding CollectMetrics}" Margin="0,8,0,0" />
                             <CheckBox Content="{l:Tr Settings.NotifyDown}" IsChecked="{Binding NotifyOnServerDown}" Margin="0,8,0,0" />
                             <CheckBox Content="{l:Tr Settings.AutoInventory}" IsChecked="{Binding AutoInventory}" Margin="0,8,0,0" />
-                            <CheckBox Content="{l:Tr Settings.GeoIp}" IsChecked="{Binding GeoIpEnabled}" Margin="0,8,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="{l:Tr Settings.GeoIp}" VerticalAlignment="Center" />
+                                <ComboBox SelectedIndex="{Binding GeoLookupIndex}" Width="300" Margin="10,0,0,0">
+                                    <ComboBoxItem Content="{l:Tr Settings.GeoIpWhoIs}" />
+                                    <ComboBoxItem Content="{l:Tr Settings.GeoIpApi}" />
+                                    <ComboBoxItem Content="{l:Tr Settings.GeoOff}" />
+                                </ComboBox>
+                            </StackPanel>
                             <TextBlock Style="{StaticResource Hint}" Text="{l:Tr Settings.GeoIpHint}" Margin="0,4,0,0" />
 
                             <TextBlock Style="{StaticResource SectionHeader}" Text="{l:Tr Settings.Scripts}" />

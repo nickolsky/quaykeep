@@ -9,7 +9,7 @@ using Quaykeep.Core.Storage;
 namespace Quaykeep.Core.Geo;
 
 /// <summary>
-/// Server location and network (AS, organization) from an online GeoIP service (ipwho.is, falling back to ip-api.com),
+/// Server location and network (AS, organization) from the GeoIP service chosen in the settings (ipwho.is or ip-api.com),
 /// and the registry's whois record of its address (<see cref="Whois"/>).
 /// </summary>
 public sealed class GeoIpService(VaultService vault, SettingsService settings)
@@ -22,6 +22,12 @@ public sealed class GeoIpService(VaultService vault, SettingsService settings)
     static GeoIpService() => Http.DefaultRequestHeaders.UserAgent.ParseAdd("Quaykeep/1.0");
 
     public bool Enabled => settings.Settings.GeoIpEnabled;
+    public GeoProvider Provider => settings.Settings.GeoProvider;
+
+    /// <summary>"ipwho.is" or "ip-api.com", for texts that say where addresses go.</summary>
+    public string ProviderName => Name(Provider);
+
+    public static string Name(GeoProvider p) => p == GeoProvider.IpApi ? "ip-api.com" : "ipwho.is";
 
     /// <summary>Looks up the location if it is unknown, outdated, in another language or the IP changed.</summary>
     public Task RefreshAsync(Guid serverId, bool force = false)
@@ -62,7 +68,17 @@ public sealed class GeoIpService(VaultService vault, SettingsService settings)
         await _gate.WaitAsync();
         try
         {
-            if (needGeo && await LookupAsync(ip, lang) is { } result) vault.UpdateFacts(id, f => f.Geo = result);
+            if (needGeo)
+            {
+                try
+                {
+                    if (await LookupAsync(ip, lang, Provider) is { } result) vault.UpdateFacts(id, f => f.Geo = result);
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+                {
+                    // the whois below does not depend on it
+                }
+            }
             if (needWhois)
             {
                 try
@@ -97,11 +113,15 @@ public sealed class GeoIpService(VaultService vault, SettingsService settings)
                  (b[0] == 100 && b[1] is >= 64 and <= 127) || (b[0] == 169 && b[1] == 254) || b[0] == 0);
     }
 
-    public static async Task<GeoInfo?> LookupAsync(string ip, string lang)
+    /// <summary>One address at the chosen service; null when it has no answer (no fallback to the other one).</summary>
+    public static Task<GeoInfo?> LookupAsync(string ip, string lang, GeoProvider provider, CancellationToken ct = default) =>
+        provider == GeoProvider.IpApi ? IpApiAsync(ip, lang, ct) : IpWhoIsAsync(ip, lang, ct);
+
+    private static async Task<GeoInfo?> IpWhoIsAsync(string ip, string lang, CancellationToken ct)
     {
         try
         {
-            var r = await Http.GetFromJsonAsync<JsonElement>($"https://ipwho.is/{ip}?lang={lang}");
+            var r = await Http.GetFromJsonAsync<JsonElement>($"https://ipwho.is/{ip}?lang={lang}", ct);
             if (r.TryGetProperty("success", out var ok) && ok.ValueKind == JsonValueKind.True)
             {
                 var c = r.TryGetProperty("connection", out var conn) ? conn : default;
@@ -123,11 +143,16 @@ public sealed class GeoIpService(VaultService vault, SettingsService settings)
                 };
             }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException || ex is TaskCanceledException && !ct.IsCancellationRequested)
         {
         }
+        return null;
+    }
 
-        var a = await Http.GetFromJsonAsync<JsonElement>($"http://ip-api.com/json/{ip}?fields={IpApiFields}&lang={lang}");
+    /// <summary>ip-api.com answers over plain HTTP only on its free tier.</summary>
+    private static async Task<GeoInfo?> IpApiAsync(string ip, string lang, CancellationToken ct)
+    {
+        var a = await Http.GetFromJsonAsync<JsonElement>($"http://ip-api.com/json/{ip}?fields={IpApiFields}&lang={lang}", ct);
         return Str(a, "status") == "success" ? FromIpApi(a, ip, lang) : null;
     }
 
@@ -150,8 +175,9 @@ public sealed class GeoIpService(VaultService vault, SettingsService settings)
     };
 
     /// <summary>
-    /// Many addresses at once (the hops of a traceroute): ip-api.com's batch lookup, up to 100 addresses a request.
-    /// Private addresses are skipped. Returns what was found; nothing when GeoIP is off in the settings.
+    /// Many addresses at once (the hops of a traceroute): with ip-api.com one batch request per 100 addresses, with
+    /// ipwho.is a request per address (a few at a time). Private addresses are skipped. Returns what was found; nothing
+    /// when lookups are off in the settings.
     /// </summary>
     public async Task<Dictionary<string, GeoInfo>> LookupManyAsync(IEnumerable<string> ips, CancellationToken ct = default)
     {
@@ -159,6 +185,15 @@ public sealed class GeoIpService(VaultService vault, SettingsService settings)
         if (!Enabled) return result;
         var lang = L.Language;
         var list = ips.Distinct().Where(i => IPAddress.TryParse(i, out var a) && IsPublic(a)).ToList();
+        if (Provider == GeoProvider.IpWhoIs)
+        {
+            await Parallel.ForEachAsync(list, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct }, async (ip, token) =>
+            {
+                if (await IpWhoIsAsync(ip, lang, token) is { } g)
+                    lock (result) result[ip] = g;
+            });
+            return result;
+        }
         foreach (var chunk in list.Chunk(100))
         {
             using var r = await Http.PostAsJsonAsync($"http://ip-api.com/batch?fields={IpApiFields}&lang={lang}", chunk, ct);

@@ -397,14 +397,17 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool GeoIpEnabled
+    /// <summary>0 = ipwho.is, 1 = ip-api.com, 2 = off.</summary>
+    public int GeoLookupIndex
     {
-        get => S.GeoIpEnabled;
+        get => !S.GeoIpEnabled ? 2 : S.GeoProvider == GeoProvider.IpApi ? 1 : 0;
         set
         {
-            S.GeoIpEnabled = value;
+            var was = S.GeoIpEnabled;
+            S.GeoIpEnabled = value != 2;
+            if (value != 2) S.GeoProvider = value == 1 ? GeoProvider.IpApi : GeoProvider.IpWhoIs;
             Save();
-            if (value) _host.RefreshBackground(force: false);
+            if (S.GeoIpEnabled && !was) _host.RefreshBackground(force: false);
         }
     }
 
