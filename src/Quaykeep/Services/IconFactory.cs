@@ -1,116 +1,120 @@
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 
 namespace Quaykeep.Services;
 
 /// <summary>
 /// The app icon: a blue rounded tile with a white terminal prompt and a green status dot (grey when locked).
-/// The same drawing produces Assets\app.ico (see <see cref="WriteIco"/>) and the runtime tray / window icons.
+/// The same drawing produces the installer icons in Assets (app.ico, app.png, app.icns: see <see cref="WriteAll"/>)
+/// and the runtime tray / window icons.
 /// </summary>
-public static partial class IconFactory
+public static class IconFactory
 {
     public static readonly int[] IcoSizes = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256];
 
-    public static Bitmap Render(int size, bool unlocked)
+    public static RenderTargetBitmap Render(int size, bool unlocked)
     {
-        var bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bmp);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        g.Clear(System.Drawing.Color.Transparent);
-        float s = size;
+        var bmp = new RenderTargetBitmap(new PixelSize(size, size), new Vector(96, 96));
+        using var g = bmp.CreateDrawingContext();
+        double s = size;
 
         // tile
-        var inset = s <= 20 ? 0.5f : s * 0.04f;
-        var tile = new RectangleF(inset, inset, s - 2 * inset, s - 2 * inset);
-        using (var path = RoundedRect(tile, s * 0.23f))
+        var inset = s <= 20 ? 0.5 : s * 0.04;
+        var tile = new Rect(inset, inset, s - 2 * inset, s - 2 * inset);
+        var radius = s * 0.23;
+        var (from, to) = unlocked ? (Color.FromRgb(60, 146, 255), Color.FromRgb(24, 72, 214)) : (Color.FromRgb(150, 155, 164), Color.FromRgb(88, 94, 104));
+        var fill = new LinearGradientBrush
         {
-            var (from, to) = unlocked
-                ? (System.Drawing.Color.FromArgb(60, 146, 255), System.Drawing.Color.FromArgb(24, 72, 214))
-                : (System.Drawing.Color.FromArgb(150, 155, 164), System.Drawing.Color.FromArgb(88, 94, 104));
-            using var fill = new System.Drawing.Drawing2D.LinearGradientBrush(new PointF(0, 0), new PointF(s, s), from, to);
-            g.FillPath(fill, path);
-
-            if (size >= 32)
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Absolute),
+            EndPoint = new RelativePoint(s, s, RelativeUnit.Absolute),
+            GradientStops = { new GradientStop(from, 0), new GradientStop(to, 1) },
+        };
+        g.DrawRectangle(fill, null, tile, radius, radius);
+        if (size >= 32)
+        {
+            // soft glass highlight on the upper half
+            using (g.PushClip(new RoundedRect(tile, radius)))
             {
-                // soft glass highlight on the upper half
-                using var clip = new Region(path);
-                g.SetClip(clip, CombineMode.Replace);
-                using var gloss = new System.Drawing.Drawing2D.LinearGradientBrush(new PointF(0, 0), new PointF(0, s * 0.55f),
-                    System.Drawing.Color.FromArgb(60, 255, 255, 255), System.Drawing.Color.FromArgb(0, 255, 255, 255));
-                g.FillRectangle(gloss, 0, 0, s, s * 0.55f);
-                g.ResetClip();
+                var gloss = new LinearGradientBrush
+                {
+                    StartPoint = new RelativePoint(0, 0, RelativeUnit.Absolute),
+                    EndPoint = new RelativePoint(0, s * 0.55, RelativeUnit.Absolute),
+                    GradientStops = { new GradientStop(Color.FromArgb(60, 255, 255, 255), 0), new GradientStop(Color.FromArgb(0, 255, 255, 255), 1) },
+                };
+                g.DrawRectangle(gloss, null, new Rect(0, 0, s, s * 0.55));
             }
         }
 
         // prompt ">_"
-        var stroke = Math.Max(1.6f, s * 0.095f);
-        using (var pen = new System.Drawing.Pen(System.Drawing.Color.White, stroke) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+        var pen = new Pen(Brushes.White, Math.Max(1.6, s * 0.095)) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+        var chevron = new StreamGeometry();
+        using (var c = chevron.Open())
         {
-            g.DrawLines(pen, [P(s, 0.25f, 0.36f), P(s, 0.45f, 0.54f), P(s, 0.25f, 0.72f)]);
-            g.DrawLine(pen, P(s, 0.54f, 0.72f), P(s, 0.76f, 0.72f));
+            c.BeginFigure(P(s, 0.25, 0.36), false);
+            c.LineTo(P(s, 0.45, 0.54));
+            c.LineTo(P(s, 0.25, 0.72));
+            c.EndFigure(false);
         }
+        g.DrawGeometry(null, pen, chevron);
+        g.DrawLine(pen, P(s, 0.54, 0.72), P(s, 0.76, 0.72));
 
         // status dot (top right)
         if (size >= 20)
         {
-            var r = s * 0.12f;
-            var c = P(s, 0.73f, 0.29f);
-            using var ring = new SolidBrush(unlocked ? System.Drawing.Color.FromArgb(24, 72, 214) : System.Drawing.Color.FromArgb(88, 94, 104));
-            var rr = r + Math.Max(1f, s * 0.035f);
-            g.FillEllipse(ring, c.X - rr, c.Y - rr, rr * 2, rr * 2);
-            using var dot = new SolidBrush(unlocked ? System.Drawing.Color.FromArgb(52, 211, 153) : System.Drawing.Color.FromArgb(200, 204, 210));
-            g.FillEllipse(dot, c.X - r, c.Y - r, r * 2, r * 2);
+            var r = s * 0.12;
+            var center = P(s, 0.73, 0.29);
+            var rr = r + Math.Max(1, s * 0.035);
+            g.DrawEllipse(new SolidColorBrush(unlocked ? Color.FromRgb(24, 72, 214) : Color.FromRgb(88, 94, 104)), null, center, rr, rr);
+            g.DrawEllipse(new SolidColorBrush(unlocked ? Color.FromRgb(52, 211, 153) : Color.FromRgb(200, 204, 210)), null, center, r, r);
         }
         return bmp;
     }
 
-    private static PointF P(float s, float x, float y) => new(s * x, s * y);
+    private static Point P(double s, double x, double y) => new(s * x, s * y);
 
-    public static Icon Create(bool unlocked, int size = 32)
-    {
-        using var bmp = Render(size, unlocked);
-        var h = bmp.GetHicon();
-        var icon = (Icon)Icon.FromHandle(h).Clone();
-        DestroyIcon(h);
-        return icon;
-    }
-
-    /// <summary>Window icon: the multi-size app.ico when unlocked (crisp in the taskbar), drawn grey when locked.</summary>
-    public static ImageSource CreateImage(bool unlocked)
+    /// <summary>Tray and window icon. Unlocked uses the multi-size app.ico (crisp in the taskbar); locked is drawn grey.</summary>
+    public static WindowIcon Create(bool unlocked, int size = 64)
     {
         if (unlocked)
         {
             try
             {
-                var frame = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/app.ico"));
-                frame.Freeze();
-                return frame;
+                return new WindowIcon(AssetLoader.Open(new Uri("avares://Quaykeep/Assets/app.ico")));
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or FileNotFoundException)
             {
             }
         }
-        using var icon = Create(unlocked, 64);
-        var src = Imaging.CreateBitmapSourceFromHIcon(icon.Handle, System.Windows.Int32Rect.Empty,
-            BitmapSizeOptions.FromEmptyOptions());
-        src.Freeze();
-        return src;
+        return new WindowIcon(Png(Render(size, unlocked)));
     }
 
-    /// <summary>Writes a multi-resolution .ico: 32-bit DIB entries, PNG for 256 px.</summary>
+    private static MemoryStream Png(Bitmap bitmap)
+    {
+        var ms = new MemoryStream();
+        bitmap.Save(ms, PngBitmapEncoderOptions.Default);
+        ms.Position = 0;
+        return ms;
+    }
+
+    /// <summary>app.ico (Windows), app.png (Linux, 512 px), app.icns (macOS) into <paramref name="dir"/>.</summary>
+    public static void WriteAll(string dir)
+    {
+        Directory.CreateDirectory(dir);
+        WriteIco(Path.Combine(dir, "app.ico"));
+        using (var png = Render(512, true)) png.Save(Path.Combine(dir, "app.png"), PngBitmapEncoderOptions.Default);
+        WriteIcns(Path.Combine(dir, "app.icns"));
+    }
+
+    /// <summary>Writes a multi-resolution .ico with PNG entries (Windows Vista and later read them in every size).</summary>
     public static void WriteIco(string path, bool unlocked = true)
     {
         var images = IcoSizes.Select(size =>
         {
             using var bmp = Render(size, unlocked);
-            return size >= 256 ? Png(bmp) : Dib(bmp);
+            return Png(bmp).ToArray();
         }).ToList();
 
         using var fs = File.Create(path);
@@ -135,61 +139,27 @@ public static partial class IconFactory
         foreach (var img in images) w.Write(img);
     }
 
-    private static byte[] Png(Bitmap bmp)
+    /// <summary>
+    /// Writes a macOS .icns: the "icns" header and PNG entries icp4 (16), icp5 (32), ic07 (128), ic08 (256), ic09 (512),
+    /// ic10 (1024); every length is big-endian and counts its own 8-byte header.
+    /// </summary>
+    public static void WriteIcns(string path)
     {
-        using var ms = new MemoryStream();
-        bmp.Save(ms, ImageFormat.Png);
-        return ms.ToArray();
-    }
-
-    private static byte[] Dib(Bitmap bmp)
-    {
-        int w = bmp.Width, h = bmp.Height;
-        var maskStride = (w + 31) / 32 * 4;
-        using var ms = new MemoryStream();
-        using var bw = new BinaryWriter(ms);
-        bw.Write(40);
-        bw.Write(w);
-        bw.Write(h * 2);
-        bw.Write((short)1);
-        bw.Write((short)32);
-        bw.Write(0);
-        bw.Write(w * h * 4 + maskStride * h);
-        bw.Write(0);
-        bw.Write(0);
-        bw.Write(0);
-        bw.Write(0);
-        var data = bmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        try
-        {
-            var row = new byte[w * 4];
-            for (int y = h - 1; y >= 0; y--) // bottom-up
+        var entries = new (string Type, int Size)[] { ("icp4", 16), ("icp5", 32), ("ic07", 128), ("ic08", 256), ("ic09", 512), ("ic10", 1024) }
+            .Select(e =>
             {
-                Marshal.Copy(data.Scan0 + y * data.Stride, row, 0, row.Length);
-                bw.Write(row);
-            }
-        }
-        finally
+                using var bmp = Render(e.Size, true);
+                return (e.Type, Data: Png(bmp).ToArray());
+            }).ToList();
+        using var fs = File.Create(path);
+        void Int(int v) => fs.Write([(byte)(v >> 24), (byte)(v >> 16), (byte)(v >> 8), (byte)v]);
+        fs.Write("icns"u8);
+        Int(8 + entries.Sum(e => 8 + e.Data.Length));
+        foreach (var (type, data) in entries)
         {
-            bmp.UnlockBits(data);
+            fs.Write(System.Text.Encoding.ASCII.GetBytes(type));
+            Int(8 + data.Length);
+            fs.Write(data);
         }
-        bw.Write(new byte[maskStride * h]); // alpha channel does the masking
-        return ms.ToArray();
     }
-
-    private static GraphicsPath RoundedRect(RectangleF r, float radius)
-    {
-        var d = radius * 2;
-        var p = new GraphicsPath();
-        p.AddArc(r.X, r.Y, d, d, 180, 90);
-        p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-        p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-        p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-        p.CloseFigure();
-        return p;
-    }
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool DestroyIcon(IntPtr hIcon);
 }

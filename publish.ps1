@@ -1,4 +1,4 @@
-# Builds Quaykeep into .\app (framework-dependent, needs .NET 10 Desktop Runtime).
+# Builds Quaykeep into .\app (framework-dependent, needs the .NET 10 Runtime). Windows; elsewhere use "dotnet run --project src/Quaykeep".
 # Data stays in .\data next to this script, so rebuilding never touches your vault.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot

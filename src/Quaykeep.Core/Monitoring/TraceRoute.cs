@@ -33,8 +33,18 @@ public static partial class TraceRoute
     private const int GiveUpAfter = 6;
     private static readonly byte[] Payload = new byte[32];
 
-    public static async IAsyncEnumerable<TraceHop> RunAsync(IPAddress target, TimeSpan timeout, int maxHops = MaxHops,
-        [EnumeratorCancellation] CancellationToken ct = default)
+    /// <summary>
+    /// From this PC. Windows: ICMP echoes with a growing TTL. Linux / macOS: the system's traceroute (tracepath on
+    /// Linux when traceroute is missing), because without raw-socket rights .NET there does not report the routers whose
+    /// TTL ran out; ICMP only when neither tool is there.
+    /// </summary>
+    public static IAsyncEnumerable<TraceHop> RunAsync(IPAddress target, TimeSpan timeout, int maxHops = MaxHops, CancellationToken ct = default) =>
+        !OperatingSystem.IsWindows() && SystemTool(target) is { } tool
+            ? RunSystemAsync(tool, target, timeout, maxHops, ct)
+            : RunIcmpAsync(target, timeout, maxHops, ct);
+
+    private static async IAsyncEnumerable<TraceHop> RunIcmpAsync(IPAddress target, TimeSpan timeout, int maxHops,
+        [EnumeratorCancellation] CancellationToken ct)
     {
         var silent = 0;
         for (var ttl = 1; ttl <= maxHops; ttl++)

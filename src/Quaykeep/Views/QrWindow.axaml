@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.QrWindow"
+        Width="480" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="24,16,24,20">
+        <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Text="{l:Tr Qr.Hint}" Classes="hint" Margin="0,2,0,10" />
+        <!-- one choice per client app, when a value has several (an Amnezia key) -->
+        <StackPanel x:Name="Choices" Orientation="Vertical" Margin="0,0,0,10" />
+        <!-- always dark on white with a margin around: scanners need it, whatever the theme -->
+        <Border Background="White" CornerRadius="6" HorizontalAlignment="Center" Padding="4">
+            <Image x:Name="Code" Width="400" Height="400" RenderOptions.BitmapInterpolationMode="None" />
+        </Border>
+        <TextBox x:Name="PayloadText" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="72"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" Classes="mono" FontSize="11" Margin="0,12,0,0" />
+        <TextBlock x:Name="Status" Classes="hint" Margin="0,6,0,0" TextWrapping="Wrap" />
+        <DockPanel Margin="0,14,0,0">
+            <Button x:Name="SaveButton" DockPanel.Dock="Left" Content="{l:Tr Qr.SaveConf}" Click="OnSave" IsVisible="False" Padding="12,5" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{l:Tr ScriptRun.Copy}" Click="OnCopy" MinWidth="100" Margin="0,0,8,0" HorizontalContentAlignment="Center" />
+                <Button Content="{l:Tr Common.Close}" IsCancel="True" IsDefault="True" MinWidth="100" Click="OnClose" HorizontalContentAlignment="Center" />
+            </StackPanel>
+        </DockPanel>
+    </StackPanel>
+</Window>

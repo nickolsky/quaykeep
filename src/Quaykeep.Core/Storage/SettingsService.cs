@@ -1,3 +1,5 @@
+using System.Runtime.Versioning;
+using System.Security;
 using System.Text.Json;
 using Microsoft.Win32;
 using Quaykeep.Core.Models;
@@ -45,24 +47,58 @@ public sealed class SettingsService
     public void Save() => File.WriteAllText(AppPaths.SettingsFile, JsonSerializer.Serialize(Settings, Options));
 }
 
-/// <summary>Per-user autostart via HKCU\...\Run (no admin rights needed).</summary>
+/// <summary>
+/// "Start with the session"; started that way the app stays in the tray (--tray). No admin rights needed anywhere:
+/// Windows: the per-user Run key. macOS: a LaunchAgent in ~/Library/LaunchAgents. Linux: an XDG autostart entry.
+/// </summary>
 public static class Autostart
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "Quaykeep";
     /// <summary>The entry of SSH Manager, the name before Quaykeep: it starts an exe that is gone after the update.</summary>
     private const string LegacyValueName = "SshManager";
+    private const string MacLabel = "app.quaykeep";
 
-    public static string Command => $"\"{Environment.ProcessPath ?? AppPaths.MainExe}\" --tray";
+    public static string Command => $"\"{AppPaths.Launcher}\" --tray";
 
-    public static bool IsEnabled()
+    private static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    private static string MacPlist => Path.Combine(Home, "Library", "LaunchAgents", MacLabel + ".plist");
+    private static string LinuxEntry => Path.Combine(
+        Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") is { Length: > 0 } xdg ? xdg : Path.Combine(Home, ".config"),
+        "autostart", "quaykeep.desktop");
+
+    public static bool IsEnabled() =>
+        OperatingSystem.IsWindows() ? IsEnabledWindows() : File.Exists(OperatingSystem.IsMacOS() ? MacPlist : LinuxEntry);
+
+    /// <summary>Creates, refreshes (if the program moved) or removes the entry; on Windows drops the one from before the rename.</summary>
+    public static void Apply(bool enabled)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            ApplyWindows(enabled);
+            return;
+        }
+        var path = OperatingSystem.IsMacOS() ? MacPlist : LinuxEntry;
+        if (!enabled)
+        {
+            if (File.Exists(path)) File.Delete(path);
+            return;
+        }
+        var text = OperatingSystem.IsMacOS() ? MacAgent(AppPaths.Launcher) : DesktopEntry(AppPaths.Launcher);
+        if (File.Exists(path) && File.ReadAllText(path) == text) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, text);
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static bool IsEnabledWindows()
     {
         using var key = Registry.CurrentUser.OpenSubKey(RunKey);
         return key?.GetValue(ValueName) is string;
     }
 
-    /// <summary>Creates, refreshes (if the exe moved) or removes the Run entry; drops the one from before the rename.</summary>
-    public static void Apply(bool enabled)
+    [SupportedOSPlatform("windows")]
+    private static void ApplyWindows(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RunKey);
         if (key.GetValue(LegacyValueName) != null) key.DeleteValue(LegacyValueName);
@@ -76,4 +112,29 @@ public static class Autostart
             key.DeleteValue(ValueName);
         }
     }
+
+    private static string MacAgent(string exe) => $"""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>Label</key><string>{MacLabel}</string>
+          <key>ProgramArguments</key>
+          <array><string>{SecurityElement.Escape(exe)}</string><string>--tray</string></array>
+          <key>RunAtLoad</key><true/>
+          <key>ProcessType</key><string>Interactive</string>
+        </dict>
+        </plist>
+        """;
+
+    // Exec quoting per the Desktop Entry spec: inside double quotes, ", `, $ and \ are escaped with a backslash.
+    private static string DesktopEntry(string exe) => $"""
+        [Desktop Entry]
+        Type=Application
+        Name=Quaykeep
+        Comment=Quaykeep in the tray
+        Exec="{exe.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("`", "\\`").Replace("$", "\\$")}" --tray
+        Terminal=false
+        X-GNOME-Autostart-enabled=true
+        """;
 }

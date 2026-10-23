@@ -4,6 +4,7 @@ public enum TerminalMode
 {
     WindowsTerminalTab,
     WindowsTerminalWindow,
+    /// <summary>A console window of its own (Windows), the system terminal (Terminal.app, the desktop's terminal on Linux).</summary>
     ConsoleWindow,
     /// <summary>A tab inside the Quaykeep window (xterm.js + SSH.NET).</summary>
     BuiltIn,
@@ -39,7 +40,8 @@ public sealed class AppSettings
     public bool LockOnWindowsLock { get; set; }
     /// <summary>Show the unlock window when an external client (ssh, git, VS Code) asks the agent while locked.</summary>
     public bool UnlockOnAgentRequest { get; set; } = true;
-    public TerminalMode Terminal { get; set; } = TerminalMode.WindowsTerminalTab;
+    /// <summary>Windows Terminal by default on Windows; the built-in terminal elsewhere (Windows Terminal modes mean the system terminal there).</summary>
+    public TerminalMode Terminal { get; set; } = OperatingSystem.IsWindows() ? TerminalMode.WindowsTerminalTab : TerminalMode.BuiltIn;
     public string? WindowsTerminalProfile { get; set; }
     /// <summary>Built-in terminal: load the shell integration (prompt marks, cwd, "edit") for bash / zsh.</summary>
     public bool TerminalIntegration { get; set; } = true;

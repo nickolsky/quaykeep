@@ -1,0 +1,24 @@
+<v:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.KeyGenerateWindow"
+        Title="{l:Tr KeyGen.Title}" Width="440" SizeToContent="Height" CanResize="False">
+    <StackPanel Margin="24,16,24,20">
+        <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Name}" />
+        <TextBox x:Name="NameBox" />
+        <TextBlock Classes="fieldLabel" Text="{l:Tr KeyGen.Comment}" />
+        <TextBox x:Name="CommentBox" />
+        <TextBlock Classes="fieldLabel" Text="{l:Tr Keys.Type}" />
+        <ComboBox x:Name="TypeBox" SelectedIndex="0" HorizontalAlignment="Stretch">
+            <ComboBoxItem Content="{l:Tr KeyGen.Ed25519}" />
+            <ComboBoxItem Content="{l:Tr KeyGen.Rsa}" />
+        </ComboBox>
+        <ProgressBar x:Name="Busy" IsIndeterminate="True" Height="4" MinHeight="4" Margin="0,14,0,0" Opacity="0" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button x:Name="OkButton" Content="{l:Tr KeyGen.Generate}" IsDefault="True" Click="OnOk"
+                    Classes="accent" MinWidth="120" HorizontalContentAlignment="Center" />
+            <Button Content="{l:Tr Common.Cancel}" IsCancel="True" Classes="dialog" />
+        </StackPanel>
+    </StackPanel>
+</v:DialogWindow>

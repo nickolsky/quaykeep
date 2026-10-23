@@ -1,8 +1,14 @@
 # Working on Quaykeep (for AI agents)
 
-This is a Windows WPF app (.NET 10) for managing many SSH servers: an encrypted vault, one-click sessions, a built-in SSH
-agent, monitoring, install scripts and an MCP server. The user-facing docs are in [README.md](README.md) (English) and
-[README.ru.md](README.ru.md) (Russian). Keep both up to date when a feature changes.
+This is a cross-platform desktop app (Avalonia 12 on .NET 10; Windows, macOS and Linux) for managing many SSH servers: an
+encrypted vault, one-click sessions, a built-in SSH agent, monitoring, install scripts and an MCP server. The user-facing
+docs are in [README.md](README.md) (English) and [README.ru.md](README.ru.md) (Russian), and the download page and setup
+guides in `site/` (GitHub Pages, English at `site/`, Russian at `site/ru/`). Keep them up to date when a feature changes.
+
+It was a WPF app up to 1.0.x. Installed copies now update through Velopack (package id `QuaykeepApp`, install folder
+`%LOCALAPPDATA%\QuaykeepApp`; the data is in `%LOCALAPPDATA%\Quaykeep\data`, see `AppPaths`), while copies unpacked from
+the old `Quaykeep-X.Y.Z-win-x64.zip` keep updating in place from that zip (`UpdateService`): `release.ps1` keeps
+producing it under that name.
 
 The app was called **SSH Manager** up to 1.0.1 (`SshManager.exe`, helper `sshm.exe`). Some old names are kept on purpose:
 - **On servers**, everything keeps the `sshm` name, so earlier installs, forwards and user scripts keep working:
@@ -22,8 +28,10 @@ autostart entry (`Autostart`), `sshmanager-data-*` backups (`BackupService`), an
 | Path | What is there |
 |---|---|
 | `src/Quaykeep.Core` | All logic, with no WPF: vault and crypto, SSH.NET connections (`Ssh/`), monitoring (`Monitoring/`), inventory, iptables forwards, install scripts (`Scripts/`, built-ins in `Scripts/Builtin/*.sh`), MCP server (`Mcp/`), RU/EN strings (`Localization/Strings.cs`). |
-| `src/Quaykeep` | The WPF app: `Views/*.xaml`, `ViewModels/MainViewModel.cs` (server tree, context menu, commands), `Services/AppHost.cs` (wires the services together). |
-| `src/qk` | Console helper: terminal tab, `SSH_ASKPASS`, `qk <server>`, `qk mcp`. |
+| `src/Quaykeep` | The Avalonia app: `Views/*.axaml`, `ViewModels/MainViewModel.cs` (server tree, context menu, commands), `Services/AppHost.cs` (wires the services together), `Services/Platform` (idle time, session lock per OS), `Views/Infrastructure` (WPF-style `DialogWindow`, `MessageBox`, `Clipboard`, file dialogs, `Conv` converters). |
+| `src/qk` | Console helper: terminal tab, `SSH_ASKPASS`, `qk <server>`, `qk mcp`. Inside an AppImage the main program runs it (`Quaykeep.AppImage qk …`, see `AppPaths.Helper`). |
+| `site/` | The download page and setup guides (GitHub Pages, deployed by `.github/workflows/pages.yml`). |
+| `release.ps1`, `.github/workflows/release.yml` | Velopack installers and update feeds for Windows, Linux (cross-built on Windows) and macOS (on a Mac), published as one GitHub release. |
 | `tests/Quaykeep.Tests` | xUnit tests: unit tests, plus `LabTests*.cs` (need the script lab) and `E2ETests` (need `SSHM_E2E`). |
 | `tools/script-lab` | Docker lab servers (Ubuntu 24.04, Debian 12, CentOS Stream 9; `-Extra` adds more) for testing scripts over real SSH. |
 
@@ -44,21 +52,38 @@ tools\script-lab\lab.ps1 test sftp,vsftpd                 # lab tests for some s
 - Build the main **`app`** (`publish.ps1`) only when the user asks for it. Never build it over a running copy. First check
   that `app\Quaykeep.dll` can be opened exclusively. If it is locked, ask the user to exit the app from the tray.
   Never kill the user's process.
-- Run `release.ps1` or create a GitHub release only when the user explicitly asks, and at most once a week. The version
-  is in `Directory.Build.props`.
+- Run `release.ps1 -Publish`, the `release` workflow, or create a GitHub release only when the user explicitly asks, and
+  at most once a week. The version is in `Directory.Build.props`. `release.ps1` without `-Publish` only builds into
+  `artifacts/release` (Windows + Linux on Windows; the macOS packages need a Mac, which the workflow provides).
+- On macOS / Linux the app runs with `dotnet run --project src/Quaykeep` (data next to `Quaykeep.sln`). The release
+  icons (`Assets/app.ico`, `app.png`, `app.icns`) come from `IconFactory`: `Quaykeep --write-icons src/Quaykeep/Assets`.
 - Commit or push only when asked. Commit messages are in English: a single summary line listing the features, as in `git log`.
 
 ## Conventions
 
 - **Localization**: every UI string is a key in `src/Quaykeep.Core/Localization/Strings.cs` with **both** Russian and
-  English text, and the `{0}` placeholders must match. Use `{l:Tr Key}` in XAML and `L.Get("Key")` / `L.F("Key", args)` in C#.
-  `LocalizationTests` checks that the keys used in code and XAML exist.
+  English text, and the `{0}` placeholders must match. Use `{l:Tr Key}` in AXAML and `L.Get("Key")` / `L.F("Key", args)` in C#.
+  `LocalizationTests` checks that the keys used in code and AXAML exist.
+- **Every OS**: code that only works on one OS is guarded with `OperatingSystem.IsWindows()` / `IsMacOS()` / `IsLinux()`
+  (and `[SupportedOSPlatform]` on the Windows-only helpers, so the CA1416 analyzer stays quiet) and has an answer for the
+  other two, even if it is "not available here" in the UI. Paths, pipes, the agent socket, the helper and the data folder
+  come from `AppPaths`; never hard-code `\`, `.exe`, `%LOCALAPPDATA%` or a Windows-only program. Compare local paths with
+  `AppPaths.PathComparison` (Linux is case-sensitive). Open URLs and folders with `UiExtensions.OpenWithShell`.
+- **UI**: dialogs derive from `DialogWindow` (`Owner = …; ShowDialog()` returns `bool?` synchronously, like WPF);
+  `MessageBox`, `Clipboard` and the file dialogs in `Quaykeep.Views` keep WPF's API. Icons are Fluent UI System Icons
+  (`<ic:SymbolIcon Symbol="…"/>`, package FluentIcons.Avalonia): Segoe Fluent Icons exists only on Windows. Theme
+  brushes keep the WPF Fluent names (`SystemFillColorSuccessBrush`…, defined in `App.axaml`). Notifications go through
+  `AppHost.Notify` (a toast window in the corner of the screen on every OS). Avalonia's TreeDataGrid is commercial: the
+  server tree is our own `TreeListView`.
 - **Code style**: match the surrounding code: file-scoped namespaces, primary constructors, `<summary>` comments that say
   *why*, terse naming. Some files use CRLF and others LF; keep each file's line endings. `*.sh` / `*.yml` must be LF
   (`.gitattributes`).
-- **Server context menu**: there is one `ContextMenu` on the tree in `MainWindow.xaml`. Items show or hide through styles
-  keyed on `SelectionKind` (`MiServer`, `MiContainer`, …). Dynamic submenus (Install, Copy, Monitoring, AI agent access)
-  are `ObservableCollection<MenuEntry>`s that `MainViewModel.PrepareContextMenu()` fills when the menu opens. Server
+- **Server context menu**: there is one `ContextMenu` on the tree in `MainWindow.axaml`. Items show or hide through
+  `IsVisible` bindings on `SelectionKind` / `SelectedCronKind` with `Conv.Equal` / `Conv.OneOf` (`server|forward`).
+  Dynamic submenus (Install, Copy, Monitoring, AI agent access) are `ObservableCollection<MenuEntry>`s (the
+  `MenuItem.entries` style) that `MainViewModel.PrepareContextMenu()` fills when the menu opens. Tab pages (servers,
+  keys, settings, terminals, files, editors) all stay in one panel and are shown with `IsVisible`: a terminal or editor
+  hosts a native web view that must never leave the visual tree. Server
   items are grouped: connect/edit/copy → install/forwards/keys/agents → ping/checks/monitoring → reboot/delete.
 - **Remote commands**: use `RemoteShell.Run(client, server, script, elevated)`. It runs POSIX `sh`, not bash, and passes the
   sudo password on stdin.

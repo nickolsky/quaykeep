@@ -31,8 +31,8 @@ public static class McpPolicy
         {
             if (string.IsNullOrWhiteSpace(f) || !Path.IsPathFullyQualified(f)) continue;
             var root = RealPath(f).TrimEnd('\\', '/');
-            if (string.Equals(real.TrimEnd('\\', '/'), root, StringComparison.OrdinalIgnoreCase) ||
-                real.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(real.TrimEnd('\\', '/'), root, AppPaths.PathComparison) ||
+                real.StartsWith(root + Path.DirectorySeparatorChar, AppPaths.PathComparison))
                 return real;
         }
         error = L.F("Mcp.FolderNotAllowed", path, string.Join("; ", folders));

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quaykeep — SSH server manager for Windows, macOS and Linux</title>
+<meta name="description" content="Quaykeep keeps your SSH servers, passwords and keys in an encrypted vault: one-click sessions, a built-in SSH agent and terminal, SFTP file manager, monitoring, firewall, port forwards, install scripts and an MCP server for AI agents. Free and open source.">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css?v=1">
+<link rel="alternate" hreflang="ru" href="ru/">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="icon.png" alt="">Quaykeep</a>
+    <nav>
+      <a class="hide-sm" href="#features">Features</a>
+      <a class="hide-sm" href="#agents">AI agents</a>
+      <a href="guide.html">Setup guide</a>
+      <a class="hide-sm" href="https://github.com/nickolsky/quaykeep">GitHub</a>
+      <a class="lang" href="ru/" hreflang="ru">RU</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <img class="logo" src="icon.png" alt="Quaykeep icon">
+    <h1>All your SSH servers,<br><span>one quay to keep them</span></h1>
+    <p class="lead">Servers, passwords and keys in an encrypted vault. One-click sessions, a built-in SSH agent and terminal,
+      a two-panel SFTP file manager, monitoring, firewall and port forwards — and a safe way for AI agents to help.</p>
+    <div class="badges">
+      <span class="badge"><b>●</b> Free &amp; open source (MIT)</span>
+      <span class="badge">Windows · macOS · Linux</span>
+      <span class="badge">Your data stays on your computer</span>
+    </div>
+
+    <div class="downloads" id="download">
+      <div class="dl" data-os="win">
+        <h3>Windows</h3>
+        <p class="meta">Windows 10 / 11, x64 · installs for your user, no admin rights</p>
+        <a class="btn accent" data-asset="Quaykeep-win-x64-Setup.exe" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-win-x64-Setup.exe">Download installer <span class="size"></span></a>
+        <span class="alt">or the <a data-asset="Quaykeep-win-x64-Portable.zip" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-win-x64-Portable.zip">portable zip <span class="size"></span></a></span>
+      </div>
+      <div class="dl" data-os="mac">
+        <h3>macOS</h3>
+        <p class="meta">macOS 14 or later · .pkg installer</p>
+        <a class="btn accent" data-asset="Quaykeep-osx-arm64.pkg" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-osx-arm64.pkg">Apple Silicon (M1–M4) <span class="size"></span></a>
+        <a class="btn" data-asset="Quaykeep-osx-x64.pkg" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-osx-x64.pkg">Intel Mac <span class="size"></span></a>
+      </div>
+      <div class="dl" data-os="linux">
+        <h3>Linux</h3>
+        <p class="meta">x64 AppImage · Ubuntu 22.04+, Debian 12+, Fedora 41+ and others</p>
+        <a class="btn accent" data-asset="Quaykeep-linux-x64.AppImage" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-linux-x64.AppImage">Download AppImage <span class="size"></span></a>
+        <span class="alt">needs WebKitGTK for the built-in terminal — <a href="guide.html#linux">details</a></span>
+      </div>
+    </div>
+    <p class="release-line">Latest version <b data-version>—</b> <span data-date></span> ·
+      <a href="https://github.com/nickolsky/quaykeep/releases">all releases</a> ·
+      <a href="guide.html#install">installation help</a> · updates install themselves</p>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>Everything a server fleet needs, in one window</h2>
+      <p class="sub">Built for people who run dozens of VPS: VPN nodes, sites, home servers. No account, no cloud, no telemetry.</p>
+      <div class="grid">
+        <div class="card"><div class="ico">🔐</div><h3>Encrypted vault</h3>
+          <p>Servers, passwords and private keys in one file: AES-256-GCM with an Argon2id key from your master password. Auto-lock on idle and when the computer locks.</p></div>
+        <div class="card"><div class="ico">⚡</div><h3>One-click sessions</h3>
+          <p>Double-click a server: a tab in the built-in terminal, or Windows Terminal, Terminal.app or your Linux terminal. Passwords go through SSH_ASKPASS, never the command line.</p></div>
+        <div class="card"><div class="ico">🗝️</div><h3>Built-in SSH agent</h3>
+          <p>Your keys for ssh, git and VS Code Remote-SSH: the Windows OpenSSH pipe or SSH_AUTH_SOCK on macOS and Linux. One click switches a server from password to key login.</p></div>
+        <div class="card"><div class="ico">⌨️</div><h3>Smart terminal &amp; editor</h3>
+          <p>xterm.js tabs with suggestions from the server's history, commands and files; <code>edit FILE</code> opens a CodeMirror editor that saves through sudo when needed.</p></div>
+        <div class="card"><div class="ico">📁</div><h3>SFTP file manager</h3>
+          <p>Two panels in the Far style: this computer and the server. Copy, move, rename, permissions, drag and drop, a transfer queue.</p></div>
+        <div class="card"><div class="ico">📈</div><h3>Monitoring &amp; uptime</h3>
+          <p>SSH and port checks, CPU / memory / disk, uptime charts for a day to a year, notifications when a server or port goes down.</p></div>
+        <div class="card"><div class="ico">🛡️</div><h3>Firewall &amp; forwards</h3>
+          <p>Block or allow-list addresses per port or server, Docker included, applied with an automatic rollback if SSH would break. iptables port forwards and a network map of every route.</p></div>
+        <div class="card"><div class="ico">📦</div><h3>Install scripts</h3>
+          <p>VLESS REALITY, Hysteria 2, AmneziaWG, Nextcloud, Seafile, File Browser, SFTP / FTPS, static sites, Docker. Results (links, passwords) saved with the server, with QR codes.</p></div>
+        <div class="card"><div class="ico">🌍</div><h3>Inventory &amp; network facts</h3>
+          <p>OS, containers, services, cron jobs and timers, listening ports; region, hoster and whois; traceroute explained hop by hop.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="agents">
+    <div class="wrap split">
+      <div>
+        <h2>AI agents, on a short leash</h2>
+        <p class="sub">Quaykeep is an MCP server for Claude Code, Codex and other agents. The agent asks; Quaykeep runs the command with the credentials from the vault. The agent never sees a password or key.</p>
+        <ul class="checks">
+          <li>Access is <b>off by default</b> and set per server: read only → reboot → menu commands → full access.</li>
+          <li>Reboots and deletions wait for your <b>Allow / Deny</b>; system folders can never be deleted.</li>
+          <li>Passwords and login links from scripts can be hidden from agents completely.</li>
+          <li>Every call is <b>logged</b>, denied ones too, and viewable live like a terminal.</li>
+        </ul>
+        <p><a href="guide.html#mcp">Connect Claude Code or Codex →</a></p>
+      </div>
+<pre>claude mcp add --scope user quaykeep -- \
+  "/Applications/Quaykeep.app/Contents/MacOS/qk" mcp
+
+<span style="opacity:.6"># then, in Claude Code:</span>
+&gt; what's wrong with vpn-frankfurt? restart xray if it's stuck</pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>Private by design</h2>
+        <p class="sub">Everything lives in a data folder on your computer. Optional online lookups (GeoIP, whois) can be switched off; updates come from this project's GitHub releases.</p>
+        <ul class="checks">
+          <li>Secrets never touch a command line, a file on the server or a log.</li>
+          <li>Changes to sshd and the firewall are validated first and rolled back automatically if a fresh login fails.</li>
+          <li>Backups of the whole data folder to a folder or a server over SFTP, on a schedule.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Works the same on every OS</h3>
+        <table>
+          <tr><th></th><th>Windows</th><th>macOS</th><th>Linux</th></tr>
+          <tr><td>Install</td><td>Setup.exe / zip</td><td>.pkg</td><td>AppImage</td></tr>
+          <tr><td>SSH agent</td><td>OpenSSH pipe</td><td colspan="2">SSH_AUTH_SOCK socket</td></tr>
+          <tr><td>External terminal</td><td>Windows Terminal</td><td>Terminal.app</td><td>your terminal</td></tr>
+          <tr><td>Tray</td><td>notification area</td><td>menu bar</td><td>tray / AppIndicator</td></tr>
+          <tr><td>Auto-update</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Quaykeep · MIT License · made for people with too many servers</span>
+    <span><a href="guide.html">Setup guide</a> · <a href="https://github.com/nickolsky/quaykeep">Source</a> · <a href="https://github.com/nickolsky/quaykeep/issues">Issues</a> · <a href="ru/">По-русски</a></span>
+  </div>
+</footer>
+<script src="app.js?v=1"></script>
+</body>
+</html>

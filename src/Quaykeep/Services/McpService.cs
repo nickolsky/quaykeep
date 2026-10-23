@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Security.Cryptography;
-using System.Windows.Threading;
+using Avalonia.Threading;
 using Quaykeep.Core;
 using Quaykeep.Core.Mcp;
 using Quaykeep.Core.Models;
@@ -78,13 +78,13 @@ public sealed class McpService : IDisposable
             var w = new AgentConfirmWindow(title, text);
             w.ShowDialog();
             return w.Allowed;
-        }).Task;
+        }).GetTask();
 
     private string? _token;
 
     /// <summary>
     /// The token HTTP clients must send (made the first time it is needed). settings.json keeps it encrypted for this
-    /// Windows user; a plain one from before is encrypted on first use, and one that can't be decrypted is replaced.
+    /// user (DPAPI on Windows, a key file elsewhere: see UserSecret); a plain one from before is encrypted on first use, and one that can't be decrypted is replaced.
     /// </summary>
     public string Token()
     {
@@ -136,12 +136,15 @@ public sealed class McpService : IDisposable
 
     // ---------- connection help for the settings page ----------
 
-    /// <summary>The qk.exe next to the app (what Claude Code / Codex start).</summary>
+    /// <summary>The qk helper next to the app (what Claude Code / Codex start); inside an AppImage the AppImage with "qk".</summary>
     public static string HelperPath => AppPaths.HelperExe;
 
-    public static string ClaudeCommand => $"claude mcp add --scope user quaykeep -- \"{HelperPath}\" mcp";
+    private static IEnumerable<string> HelperArgs => AppPaths.Helper.Args.Append("mcp");
 
-    public static string CodexConfig => $"[mcp_servers.quaykeep]\ncommand = '{HelperPath}'\nargs = [\"mcp\"]\ntool_timeout_sec = 900";
+    public static string ClaudeCommand => $"claude mcp add --scope user quaykeep -- \"{HelperPath}\" {string.Join(' ', HelperArgs)}";
+
+    public static string CodexConfig =>
+        $"[mcp_servers.quaykeep]\ncommand = '{HelperPath}'\nargs = [{string.Join(", ", HelperArgs.Select(a => $"\"{a}\""))}]\ntool_timeout_sec = 900";
 
     public string ClaudeHttpCommand() =>
         $"claude mcp add --scope user --transport http quaykeep {"http://127.0.0.1:" + HttpPort + "/mcp"} --header \"Authorization: Bearer {Token()}\"";

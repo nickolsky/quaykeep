@@ -27,7 +27,7 @@ public class LocalizationTests
     {
         var used = new HashSet<string>();
         foreach (var f in Directory.EnumerateFiles(SourceRoot(), "*.*", SearchOption.AllDirectories)
-                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")))
+                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".axaml")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")))
         {
             var text = File.ReadAllText(f);
             foreach (Match m in Regex.Matches(text, @"L\.(?:Get|F)\(""([A-Za-z0-9_.]+)""")) used.Add(m.Groups[1].Value);

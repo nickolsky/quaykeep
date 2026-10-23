@@ -1,0 +1,137 @@
+<v:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.FirewallWindow"
+        Width="1180" Height="760" MinWidth="820" MinHeight="560">
+    <Grid Margin="20,14,20,18" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,100,Auto">
+        <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock x:Name="HintText" Grid.Row="1" Classes="hint" Text="{l:Tr Fw.Hint}" Margin="0,6,0,8" />
+        <StackPanel Grid.Row="2" Margin="0,0,0,8">
+            <TextBlock x:Name="StateText" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock x:Name="HostFirewallText" Classes="hint" IsVisible="False" Margin="0,2,0,0" />
+        </StackPanel>
+
+        <!-- presets the server uses after its own rules -->
+        <DockPanel x:Name="PresetsBar" Grid.Row="3" Margin="0,0,0,8">
+            <TextBlock DockPanel.Dock="Left" Text="{l:Tr Fw.PresetsLabel}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <Button DockPanel.Dock="Right" Content="{l:Tr Fw.ManagePresets}" Click="OnManagePresets" Padding="12,3" VerticalAlignment="Center" />
+            <ItemsControl x:Name="PresetsList" VerticalAlignment="Center">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Content="{Binding Label}" IsChecked="{Binding Checked, Mode=OneWay}" ToolTip.Tip="{Binding Tip}"
+                                  Margin="0,0,16,0" MinWidth="0" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DockPanel>
+
+        <DataGrid Grid.Row="4" x:Name="RulesGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                  HeadersVisibility="Column" GridLinesVisibility="None">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="{l:Tr Fw.ColEnabled}" Width="56">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Enabled, Mode=OneWay}" IsEnabled="{Binding Own}" HorizontalAlignment="Center"
+                                      MinWidth="0" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="{l:Tr Fw.ColAction}" Binding="{Binding Action}" Width="180" />
+                <DataGridTextColumn Header="{l:Tr Fw.ColTarget}" Binding="{Binding Target}" Width="150" />
+                <DataGridTemplateColumn Header="{l:Tr Fw.ColSources}" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Sources}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourcesTip}"
+                                       VerticalAlignment="Center" Margin="12,0,4,0" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="{l:Tr Fw.ColComment}" Binding="{Binding Comment}" Width="150" />
+                <DataGridTextColumn Header="{l:Tr Fw.ColFrom}" Binding="{Binding From}" Width="130" />
+                <DataGridTextColumn Header="{l:Tr Fw.ColStatus}" Binding="{Binding Status}" Width="110" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="5" Margin="0,12,0,0" Padding="14,12" CornerRadius="6" BorderThickness="1"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+            <Grid RowDefinitions="Auto,Auto,Auto">
+                <Grid ColumnDefinitions="200,12,150,12,110,12,160,12,*">
+                    <StackPanel>
+                        <TextBlock Classes="fieldLabel" Text="{l:Tr Fw.Action}" Margin="0,0,0,4" />
+                        <ComboBox x:Name="ActionBox" SelectedIndex="0" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="{l:Tr Fw.Block}" />
+                            <ComboBoxItem Content="{l:Tr Fw.AllowOnly}" />
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Classes="fieldLabel" Text="{l:Tr Fw.Target}" Margin="0,0,0,4" />
+                        <ComboBox x:Name="TargetBox" SelectedIndex="0" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="{l:Tr Fw.TargetPorts}" />
+                            <ComboBoxItem Content="{l:Tr Fw.WholeServer}" />
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Classes="fieldLabel" Text="{l:Tr Fw.Protocol}" Margin="0,0,0,4" />
+                        <ComboBox x:Name="ProtoBox" SelectedIndex="0" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="tcp" />
+                            <ComboBoxItem Content="udp" />
+                            <ComboBoxItem Content="tcp+udp" />
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="6">
+                        <TextBlock Classes="fieldLabel" Text="{l:Tr Fw.Ports}" Margin="0,0,0,4" />
+                        <TextBox x:Name="PortsBox" ToolTip.Tip="{l:Tr Fw.PortsHint}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="8">
+                        <TextBlock Classes="fieldLabel" Text="{l:Tr Fw.Comment}" Margin="0,0,0,4" />
+                        <TextBox x:Name="CommentBox" />
+                    </StackPanel>
+                </Grid>
+
+                <DockPanel Grid.Row="1" Margin="0,12,0,4" LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Classes="fieldLabel" Text="{l:Tr Fw.Sources}" VerticalAlignment="Center" />
+                    <Button x:Name="EveryoneButton" DockPanel.Dock="Right" Content="{l:Tr Fw.AddEveryone}" ToolTip.Tip="{l:Tr Fw.AddEveryoneTip}"
+                            Padding="10,2" Margin="6,0,0,0" Click="OnAddEveryone" />
+                    <Button x:Name="ServerButton" DockPanel.Dock="Right" Content="{l:Tr Fw.AddServer}" ToolTip.Tip="{l:Tr Fw.AddServerTip}"
+                            Padding="10,2" Margin="6,0,0,0" Click="OnAddServer" />
+                    <Button x:Name="ThisPcButton" DockPanel.Dock="Right" Content="{l:Tr Fw.AddThisPc}" Padding="10,2" Click="OnAddThisPc" />
+                </DockPanel>
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+                    <StackPanel>
+                        <TextBox x:Name="SourcesBox" AcceptsReturn="True" TextWrapping="Wrap" Height="52" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 FontFamily="{DynamicResource MonoFont}" ToolTip.Tip="{l:Tr Fw.SourcesHint}" />
+                        <TextBlock Classes="hint" Text="{l:Tr Fw.SourcesHint}" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                        <Button x:Name="CancelEditButton" Content="{l:Tr Fw.CancelEdit}" MinWidth="90" Height="52" Margin="0,0,8,0"
+                                VerticalContentAlignment="Center" Click="OnCancelEdit" IsVisible="False" />
+                        <Button x:Name="AddButton" Content="{l:Tr Fw.Add}" MinWidth="130" Height="52" VerticalContentAlignment="Center"
+                                HorizontalContentAlignment="Center" Click="OnAdd" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <TextBox x:Name="Log" Grid.Row="6" Margin="0,12,0,0" IsReadOnly="True" TextWrapping="Wrap" Classes="mono"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" />
+
+        <DockPanel Grid.Row="7" Margin="0,14,0,0">
+            <ProgressBar x:Name="Busy" DockPanel.Dock="Left" IsIndeterminate="True" Width="120" Height="4" MinWidth="0" Opacity="0" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="TurnOffButton" Content="{l:Tr Fw.TurnOff}" Click="OnTurnOff" Classes="dialog" />
+                <Button x:Name="CopyButton" Content="{l:Tr Fw.CopyTo}" Click="OnCopy" Classes="dialog" />
+                <Button x:Name="RefreshButton" Content="{l:Tr Fw.Refresh}" Click="OnRefresh" Classes="dialog" />
+                <Button x:Name="EditButton" Content="{l:Tr Fw.Edit}" Click="OnEdit" Classes="dialog" />
+                <Button x:Name="DeleteButton" Content="{l:Tr Fw.Delete}" Click="OnDelete" Classes="dialog" />
+                <Button x:Name="ApplyButton" Content="{l:Tr Fw.Apply}" Click="OnApply" Classes="accent" MinWidth="150" Margin="8,0,0,0" />
+                <Button Content="{l:Tr Common.Close}" IsCancel="True" Click="OnClose" Classes="dialog" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</v:DialogWindow>

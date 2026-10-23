@@ -8,6 +8,13 @@
   'use strict';
   const host = window.chrome && window.chrome.webview;
   const send = (msg) => host && host.postMessage(msg);
+  // Windows: Segoe Fluent Icons glyphs; macOS / Linux: plain symbols (no icon font there). macOS: Cmd for copy / paste.
+  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent;
+  const WIN = /win/i.test(platform);
+  const MAC = /mac/i.test(platform);
+  if (WIN) document.body.classList.add('win');
+  const icon = (glyph, symbol) => WIN ? glyph : symbol;
+  const MONO = '"Cascadia Mono", "Cascadia Code", Consolas, Menlo, "SF Mono", "DejaVu Sans Mono", "Liberation Mono", monospace';
 
   const DARK = {
     background: '#1f1f1f', foreground: '#e6e6e6', cursor: '#e6e6e6', cursorAccent: '#1f1f1f',
@@ -28,7 +35,7 @@
     allowProposedApi: true,
     cursorBlink: true,
     scrollback: 20000,
-    fontFamily: '"Cascadia Mono", "Cascadia Code", Consolas, monospace',
+    fontFamily: MONO,
     fontSize: 14,
     theme: DARK,
     rightClickSelectsWord: false,
@@ -77,8 +84,16 @@
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== 'keydown') return true;
     const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
+    const cmd = MAC && e.metaKey && !e.ctrlKey && !e.altKey;
     const k = e.key.toLowerCase();
     if (suggestKey(e, k) === false) { e.preventDefault(); return false; }
+    // macOS: Cmd+C / Cmd+V / Cmd+A / Cmd+= … like Terminal.app (Ctrl+C stays an interrupt for the shell)
+    if (cmd && k === 'c') { copySelection(); term.clearSelection(); e.preventDefault(); return false; }
+    if (cmd && k === 'v') { send({ t: 'paste' }); e.preventDefault(); return false; }
+    if (cmd && k === 'a') { term.selectAll(); e.preventDefault(); return false; }
+    if (cmd && (k === '=' || k === '+')) { zoom(1); e.preventDefault(); return false; }
+    if (cmd && k === '-') { zoom(-1); e.preventDefault(); return false; }
+    if (cmd && k === '0') { setFontSize(14); e.preventDefault(); return false; }
     // copy: Ctrl+Shift+C, Ctrl+Insert, or Ctrl+C while something is selected
     if ((ctrl && e.shiftKey && k === 'c') || (ctrl && k === 'insert') || (ctrl && !e.shiftKey && k === 'c' && term.hasSelection())) {
       copySelection();
@@ -108,14 +123,14 @@
   let menuText = { copy: 'Copy', paste: 'Paste', selectAll: 'Select all', clear: 'Clear screen', files: 'Files here', dup: 'New terminal here' };
   const hideMenu = () => { menuEl.style.display = 'none'; };
   const MENU = () => [
-    { id: 'copy', ic: '\uE8C8', k: 'Ctrl+Shift+C', off: !term.hasSelection(), run: () => { copySelection(); term.clearSelection(); } },
-    { id: 'paste', ic: '\uE77F', k: 'Ctrl+V', off: closed, run: () => send({ t: 'paste' }) },
-    { id: 'selectAll', ic: '\uE8B3', k: '', run: () => term.selectAll() },
+    { id: 'copy', ic: icon('\uE8C8', '\u29C9'), k: MAC ? '\u2318C' : 'Ctrl+Shift+C', off: !term.hasSelection(), run: () => { copySelection(); term.clearSelection(); } },
+    { id: 'paste', ic: icon('\uE77F', '\u2398'), k: MAC ? '\u2318V' : 'Ctrl+V', off: closed, run: () => send({ t: 'paste' }) },
+    { id: 'selectAll', ic: icon('\uE8B3', '\u2B1A'), k: MAC ? '\u2318A' : '', run: () => term.selectAll() },
     { sep: true },
-    { id: 'clear', ic: '\uE894', k: '', run: () => term.clear() },
+    { id: 'clear', ic: icon('\uE894', '\u232B'), k: '', run: () => term.clear() },
     { sep: true },
-    { id: 'files', ic: '\uE8B7', k: 'Ctrl+Shift+F', run: () => send({ t: 'key', k: 'files' }) },
-    { id: 'dup', ic: '\uE756', k: 'Ctrl+Shift+T', run: () => send({ t: 'key', k: 'duplicate' }) },
+    { id: 'files', ic: icon('\uE8B7', '\u25A4'), k: 'Ctrl+Shift+F', run: () => send({ t: 'key', k: 'files' }) },
+    { id: 'dup', ic: icon('\uE756', '\u276F'), k: 'Ctrl+Shift+T', run: () => send({ t: 'key', k: 'duplicate' }) },
   ];
   document.addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -142,7 +157,7 @@
   window.addEventListener('blur', hideMenu);
 
   document.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return;
+    if (!e.ctrlKey && !(MAC && e.metaKey)) return;
     e.preventDefault();
     zoom(e.deltaY < 0 ? 1 : -1);
   }, { passive: false });
@@ -262,9 +277,13 @@
     ghostEl.style.display = 'block';
   };
 
-  const ICONS = {
+  // Segoe glyph on Windows; a text symbol (forced to text presentation with U+FE0E) elsewhere
+  const ICONS = WIN ? {
     history: '\uE81C', command: '\uE756', sub: '\uE76C', flag: '\uE8EC', dir: '\uE8B7', file: '\uE8A5',
     container: '\uE7B8', image: '\uE7B8', service: '\uE713', package: '\uE7B8', branch: '\uE8AB', value: '\uE8FD',
+  } : {
+    history: '\u21BA', command: '\u276F', sub: '\u25B8', flag: '\u2013', dir: '\u25A4', file: '\u25AB',
+    container: '\u25A3', image: '\u25A3', service: '\u2699\uFE0E', package: '\u25A3', branch: '\u2442', value: '=',
   };
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
@@ -432,7 +451,8 @@
         shell.state = 'none';
         hideSuggest();
         term.options.cursorBlink = false;
-        term.write('\r\n\x1b[90m' + (m.text || '') + '\x1b[0m\r\n');
+        // the text has \n line breaks; the terminal needs \r\n or the next line starts at the old column
+        term.write('\r\n\x1b[90m' + (m.text || '').replace(/\r?\n/g, '\r\n') + '\x1b[0m\r\n');
         break;
       case 'banner':
         showBanner(m.text);

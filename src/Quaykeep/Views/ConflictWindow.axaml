@@ -1,0 +1,23 @@
+<v:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.ConflictWindow"
+        Title="{l:Tr Files.ConflictTitle}" Width="560" SizeToContent="Height" CanResize="False">
+    <StackPanel Margin="24,16,24,20">
+        <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <Grid Margin="0,12,0,0" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+            <TextBlock Text="{l:Tr Files.ConflictNew}" Classes="hint" Margin="0,0,14,4" />
+            <TextBlock x:Name="NewInfo" Grid.Column="1" Margin="0,0,0,4" />
+            <TextBlock Grid.Row="1" Text="{l:Tr Files.ConflictExisting}" Classes="hint" Margin="0,0,14,0" />
+            <TextBlock x:Name="OldInfo" Grid.Row="1" Grid.Column="1" />
+        </Grid>
+        <WrapPanel HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="{l:Tr Files.Overwrite}" Click="OnOverwrite" Classes="accent" MinWidth="100" Margin="0,0,8,0" IsDefault="True" />
+            <Button Content="{l:Tr Files.OverwriteAll}" Click="OnOverwriteAll" MinWidth="100" Margin="0,0,8,0" />
+            <Button Content="{l:Tr Files.Skip}" Click="OnSkip" MinWidth="90" Margin="0,0,8,0" />
+            <Button Content="{l:Tr Files.SkipAll}" Click="OnSkipAll" MinWidth="100" Margin="0,0,8,0" />
+            <Button Content="{l:Tr Common.Cancel}" IsCancel="True" MinWidth="90" />
+        </WrapPanel>
+    </StackPanel>
+</v:DialogWindow>

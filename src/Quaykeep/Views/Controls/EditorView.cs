@@ -1,12 +1,9 @@
-using System.Diagnostics;
-using System.IO;
 using System.Text.Json;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Media;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Quaykeep.Core.Files;
 using Quaykeep.Core.Models;
 using Quaykeep.Services;
@@ -14,14 +11,13 @@ using Quaykeep.Services;
 namespace Quaykeep.Views.Controls;
 
 /// <summary>
-/// A remote text file in a tab: CodeMirror (Assets\editor) in WebView2 over <see cref="RemoteTextFile"/>.
-/// Ctrl+S saves; a file changed on the server meanwhile, or one the login user may not write, asks first.
+/// A remote text file in a tab: CodeMirror (Assets\editor) in the system web view (<see cref="WebPage"/>) over
+/// <see cref="RemoteTextFile"/>. Ctrl+S (Cmd+S on macOS) saves; a file changed on the server meanwhile, or one the
+/// login user may not write, asks first.
 /// </summary>
 public sealed class EditorView : DockPanel, IDisposable
 {
-    private const string HostName = "sshm-editor.local";
-
-    private readonly WebView2 _web = new();
+    private readonly WebPage _web = new("editor", "editor.html", contextMenu: true);
     private readonly RemoteTextFile _file;
     private readonly TextBlock _pathText = new() { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
     private readonly TextBlock _statusText = new() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 4, 0) };
@@ -41,23 +37,23 @@ public sealed class EditorView : DockPanel, IDisposable
         Margin = new Thickness(0, 8, 0, 0);
 
         _save.Content = L.Get("TextEd.Save");
-        _save.ToolTip = "Ctrl+S";
-        _save.SetResourceReference(StyleProperty, "AccentButtonStyle");
+        ToolTip.SetTip(_save, OperatingSystem.IsMacOS() ? "⌘S" : "Ctrl+S");
+        _save.Classes.Add("accent");
         _save.Click += (_, _) => Post(new { t = "requestSave" });
         _reload.Content = L.Get("TextEd.Reload");
         _reload.Click += (_, _) => Reload();
         _wrap.Content = L.Get("TextEd.Wrap");
-        _wrap.ToolTip = "Alt+Z";
+        ToolTip.SetTip(_wrap, "Alt+Z");
         _wrap.Click += (_, _) => Post(new { t = "wrap", on = _wrap.IsChecked == true });
         _pathText.Text = $"{server.Name}:{path}";
-        _pathText.ToolTip = _pathText.Text;
+        ToolTip.SetTip(_pathText, _pathText.Text);
         _statusText.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
 
         var bar = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
         SetDock(bar, Dock.Top);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Children = { _save, _reload, _wrap } };
-        DockPanel.SetDock(buttons, Dock.Left);
-        DockPanel.SetDock(_statusText, Dock.Right);
+        SetDock(buttons, Dock.Left);
+        SetDock(_statusText, Dock.Right);
         bar.Children.Add(buttons);
         bar.Children.Add(_statusText);
         bar.Children.Add(_pathText);
@@ -65,9 +61,9 @@ public sealed class EditorView : DockPanel, IDisposable
         var frame = new Border { Child = _web, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4) };
         frame.SetResourceReference(Border.BorderBrushProperty, "ControlStrokeColorDefaultBrush");
         Children.Add(frame);
-        _web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
+        _web.MessageReceived += OnMessage;
+        ActualThemeVariantChanged += (_, _) => SendTheme();
         UpdateButtons();
-        Loaded += OnLoaded;
     }
 
     public ServerEntry Server { get; }
@@ -81,13 +77,13 @@ public sealed class EditorView : DockPanel, IDisposable
     /// <summary>Ctrl+W / Ctrl+Tab from inside the editor.</summary>
     public event Action<string>? KeyCommand;
 
-    public new void Focus()
+    public void Focus()
     {
-        _web.Focus();
+        _web.FocusPage();
         Post(new { t = "focus" });
     }
 
-    private Window? Owner => Window.GetWindow(this);
+    private Window? Owner => TopLevel.GetTopLevel(this) as Window;
 
     /// <summary>Unsaved changes: save, discard or stay.</summary>
     public bool ConfirmClose()
@@ -103,48 +99,8 @@ public sealed class EditorView : DockPanel, IDisposable
     /// <summary>Closes the tab once a save requested by <see cref="ConfirmClose"/> went through.</summary>
     public event Action? SavedAndClose;
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    private void OnMessage(JsonElement m)
     {
-        Loaded -= OnLoaded;
-        try
-        {
-            await _web.EnsureCoreWebView2Async(await TerminalView.Environment());
-        }
-        catch (Exception ex)
-        {
-            Children.Remove(_web.Parent as UIElement);
-            Children.Add(new TextBlock { Text = L.F("Term.WebViewMissing", ex.Message), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16) });
-            return;
-        }
-        var core = _web.CoreWebView2;
-        var s = core.Settings;
-        s.AreDefaultContextMenusEnabled = true;
-        s.AreDevToolsEnabled = Debugger.IsAttached;
-        s.AreBrowserAcceleratorKeysEnabled = false;
-        s.IsStatusBarEnabled = false;
-        s.IsZoomControlEnabled = false;
-        core.SetVirtualHostNameToFolderMapping(HostName, System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "editor"),
-            CoreWebView2HostResourceAccessKind.Deny);
-        core.NewWindowRequested += (_, a) => a.Handled = true;
-        core.NavigationStarting += (_, a) =>
-        {
-            if (!a.Uri.StartsWith($"https://{HostName}/", StringComparison.OrdinalIgnoreCase)) a.Cancel = true;
-        };
-        core.WebMessageReceived += OnMessage;
-        core.Navigate($"https://{HostName}/editor.html");
-    }
-
-    private void OnMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
-    {
-        JsonElement m;
-        try
-        {
-            m = JsonDocument.Parse(e.WebMessageAsJson).RootElement;
-        }
-        catch (JsonException)
-        {
-            return;
-        }
         string S(string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
         int I(string name) => m.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : 0;
         bool B(string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
@@ -255,21 +211,13 @@ public sealed class EditorView : DockPanel, IDisposable
 
     public void SendTheme()
     {
-        var bg = (TryFindResource("SolidBackgroundFillColorQuarternaryBrush") as SolidColorBrush)?.Color ?? Colors.Black;
-        var dark = 0.2126 * bg.R + 0.7152 * bg.G + 0.0722 * bg.B < 128;
-        Post(new { t = "theme", dark, bg = $"#{bg.R:x2}{bg.G:x2}{bg.B:x2}" });
+        var (dark, bg) = WebPage.PageTheme(this);
+        Post(new { t = "theme", dark, bg });
     }
 
     private void Post(object message)
     {
-        if (!_ready || _disposed || _web.CoreWebView2 == null) return;
-        try
-        {
-            _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message));
-        }
-        catch (InvalidOperationException)
-        {
-        }
+        if (_ready && !_disposed) _web.Post(message);
     }
 
     public void Dispose()

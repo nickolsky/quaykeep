@@ -1,28 +1,20 @@
-using System.Diagnostics;
-using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Threading;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
+using Avalonia.Controls;
+using Avalonia.Threading;
 using Quaykeep.Core.Ssh;
 using Quaykeep.Core.Terminal;
 
 namespace Quaykeep.Views.Controls;
 
 /// <summary>
-/// One built-in terminal: xterm.js in WebView2 (Assets\terminal) connected to a <see cref="TerminalSession"/>.
-/// Output is batched every few milliseconds so a flood (cat of a big file) does not stall the UI thread.
+/// One built-in terminal: xterm.js in the system web view (Assets\terminal, see <see cref="WebPage"/>) connected to a
+/// <see cref="TerminalSession"/>. Output is batched every few milliseconds so a flood (cat of a big file) does not stall
+/// the UI thread.
 /// </summary>
 public sealed class TerminalView : Border, IDisposable
 {
-    private const string HostName = "sshm-terminal.local";
-    private static Task<CoreWebView2Environment>? _environment;
-
-    private readonly WebView2 _web = new();
+    private readonly WebPage _web = new("terminal", "terminal.html", contextMenu: false);
     private readonly Func<TerminalSession> _createSession;
     private readonly string? _command;
     private readonly bool _autoSuggest;
@@ -45,10 +37,11 @@ public sealed class TerminalView : Border, IDisposable
         _command = command;
         _autoSuggest = autoSuggest;
         Child = _web;
-        _web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
         _flush = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(12) };
         _flush.Tick += (_, _) => Flush();
-        Loaded += OnLoaded;
+        _web.MessageReceived += OnMessage;
+        _web.Failed += _ => SetState(TerminalState.Closed);
+        ActualThemeVariantChanged += (_, _) => SendTheme();
     }
 
     /// <summary>Connected, connecting, closed (for the tab's dot).</summary>
@@ -65,62 +58,16 @@ public sealed class TerminalView : Border, IDisposable
 
     public TerminalState State { get; private set; } = TerminalState.Connecting;
 
-    public new void Focus()
+    public void Focus()
     {
-        _web.Focus();
+        _web.FocusPage();
         Post(new { t = "focus" });
-    }
-
-    /// <summary>One WebView2 environment (browser process, profile folder) for all terminals and editors.</summary>
-    internal static Task<CoreWebView2Environment> Environment() =>
-        _environment ??= CoreWebView2Environment.CreateAsync(null,
-            Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "Quaykeep", "WebView2"));
-
-    private async void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        Loaded -= OnLoaded;
-        try
-        {
-            await _web.EnsureCoreWebView2Async(await Environment());
-        }
-        catch (Exception ex)
-        {
-            Child = new TextBlock { Text = L.F("Term.WebViewMissing", ex.Message), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16) };
-            SetState(TerminalState.Closed);
-            return;
-        }
-        var core = _web.CoreWebView2;
-        var s = core.Settings;
-        s.AreDefaultContextMenusEnabled = false;
-        s.AreDevToolsEnabled = Debugger.IsAttached;
-        s.AreBrowserAcceleratorKeysEnabled = false; // no Ctrl+R reload, Ctrl+F find, Ctrl+P print
-        s.IsStatusBarEnabled = false;
-        s.IsZoomControlEnabled = false;
-        s.IsPinchZoomEnabled = false;
-        core.SetVirtualHostNameToFolderMapping(HostName, Path.Combine(AppContext.BaseDirectory, "Assets", "terminal"),
-            CoreWebView2HostResourceAccessKind.Deny);
-        core.NewWindowRequested += (_, a) => a.Handled = true;
-        core.NavigationStarting += (_, a) =>
-        {
-            if (!a.Uri.StartsWith($"https://{HostName}/", StringComparison.OrdinalIgnoreCase)) a.Cancel = true;
-        };
-        core.WebMessageReceived += OnMessage;
-        core.Navigate($"https://{HostName}/terminal.html");
     }
 
     // ---------- page → app ----------
 
-    private void OnMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    private void OnMessage(JsonElement m)
     {
-        JsonElement m;
-        try
-        {
-            m = JsonDocument.Parse(e.WebMessageAsJson).RootElement;
-        }
-        catch (JsonException)
-        {
-            return;
-        }
         string S(string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
         int I(string name) => m.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : 0;
         switch (S("t"))
@@ -148,7 +95,7 @@ public sealed class TerminalView : Border, IDisposable
                 _session?.Resize(_cols, _rows);
                 break;
             case "paste":
-                var text = Clipboard.ContainsText() ? Clipboard.GetText() : "";
+                var text = Clipboard.GetText();
                 if (text.Length > 0) Post(new { t = "paste", d = text.Replace("\r\n", "\n") });
                 break;
             case "copy":
@@ -162,7 +109,7 @@ public sealed class TerminalView : Border, IDisposable
                 break;
             case "link":
                 if (Uri.TryCreate(S("url"), UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
-                    Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true })?.Dispose();
+                    UiExtensions.OpenWithShell(uri.AbsoluteUri);
                 break;
             case "reconnect":
                 if (State == TerminalState.Closed) Connect();
@@ -246,7 +193,7 @@ public sealed class TerminalView : Border, IDisposable
     private void OnOutput(string text)
     {
         lock (_pending) _pending.Append(text);
-        Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             if (!_flush.IsEnabled) _flush.Start();
         });
@@ -268,7 +215,7 @@ public sealed class TerminalView : Border, IDisposable
         Post(new { t = "out", d = text });
     }
 
-    private void OnClosed(string? error) => Dispatcher.BeginInvoke(() =>
+    private void OnClosed(string? error) => Dispatcher.UIThread.Post(() =>
     {
         if (_disposed) return;
         Flush();
@@ -291,21 +238,13 @@ public sealed class TerminalView : Border, IDisposable
     /// <summary>Follows the app theme: dark or light palette on the app's background colour.</summary>
     public void SendTheme()
     {
-        var bg = (TryFindResource("SolidBackgroundFillColorQuarternaryBrush") as SolidColorBrush)?.Color ?? Colors.Black;
-        var dark = 0.2126 * bg.R + 0.7152 * bg.G + 0.0722 * bg.B < 128;
-        Post(new { t = "theme", dark, bg = $"#{bg.R:x2}{bg.G:x2}{bg.B:x2}" });
+        var (dark, bg) = WebPage.PageTheme(this);
+        Post(new { t = "theme", dark, bg });
     }
 
     private void Post(object message)
     {
-        if (!_ready || _disposed || _web.CoreWebView2 == null) return;
-        try
-        {
-            _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message));
-        }
-        catch (InvalidOperationException)
-        {
-        }
+        if (_ready && !_disposed) _web.Post(message);
     }
 
     public void Dispose()

@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 
@@ -6,10 +7,21 @@ namespace Quaykeep.Core.Storage;
 public static class FileAcl
 {
     /// <summary>
-    /// Removes inherited permissions and grants access to the current user only —
-    /// Windows OpenSSH refuses private key files that others can read.
+    /// Grants access to the current user only — OpenSSH refuses private key files that others can read. Windows: removes
+    /// inherited permissions. Linux / macOS: mode 600.
     /// </summary>
     public static void RestrictToCurrentUser(string path)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            return;
+        }
+        RestrictWindows(path);
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static void RestrictWindows(string path)
     {
         var me = WindowsIdentity.GetCurrent().User!;
         var security = new FileSecurity();

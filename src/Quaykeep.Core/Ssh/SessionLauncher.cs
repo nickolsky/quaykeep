@@ -9,8 +9,9 @@ using Quaykeep.Core.Storage;
 namespace Quaykeep.Core.Ssh;
 
 /// <summary>
-/// Builds ssh.exe invocations and opens them in Windows Terminal (or a console window).
-/// Secrets never appear on command lines: the terminal runs "qk.exe tab &lt;token&gt;", which fetches
+/// Builds ssh invocations and opens them in Windows Terminal or a console window (Windows), Terminal.app (macOS) or
+/// the desktop's terminal emulator (Linux).
+/// Secrets never appear on command lines: the terminal runs "qk tab &lt;token&gt;", which fetches
 /// the real command from this process, and passwords are handed to ssh via SSH_ASKPASS on request.
 /// </summary>
 public sealed class SessionLauncher(VaultService vault, SettingsService settings, SshAgentServer agent, KnownHostsService knownHosts)
@@ -34,6 +35,7 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
         get
         {
             if (!string.IsNullOrWhiteSpace(settings.Settings.SshPath)) return settings.Settings.SshPath!;
+            if (!OperatingSystem.IsWindows()) return FindOnPath("ssh") ?? "/usr/bin/ssh";
             var system = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "OpenSSH", "ssh.exe");
             return File.Exists(system) ? system : "ssh.exe";
         }
@@ -41,15 +43,21 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
 
     public static string? FindWindowsTerminal()
     {
+        if (!OperatingSystem.IsWindows()) return null;
         var alias = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Microsoft", "WindowsApps", "wt.exe");
-        if (File.Exists(alias)) return alias;
-        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';'))
+        return File.Exists(alias) ? alias : FindOnPath("wt.exe");
+    }
+
+    /// <summary>A program in PATH, or null.</summary>
+    public static string? FindOnPath(string name)
+    {
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
         {
             try
             {
-                var p = Path.Combine(dir.Trim(), "wt.exe");
-                if (File.Exists(p)) return p;
+                var p = Path.Combine(dir.Trim(), name);
+                if (dir.Trim().Length > 0 && File.Exists(p)) return p;
             }
             catch (ArgumentException)
             {
@@ -57,6 +65,31 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
         }
         return null;
     }
+
+    /// <summary>
+    /// Linux: the terminal emulator to open sessions in and how it takes a command to run: $TERMINAL first, then the
+    /// Debian alternative, then the usual desktop terminals. Null when none is installed.
+    /// </summary>
+    public static (string Program, string[] Before)? FindLinuxTerminal()
+    {
+        var known = new (string Name, string[] Before)[]
+        {
+            ("x-terminal-emulator", ["-e"]), ("gnome-terminal", ["--"]), ("konsole", ["-e"]), ("xfce4-terminal", ["-x"]),
+            ("mate-terminal", ["-x"]), ("tilix", ["-e"]), ("kitty", []), ("alacritty", ["-e"]), ("wezterm", ["start", "--"]),
+            ("foot", []), ("xterm", ["-e"]),
+        };
+        if (Environment.GetEnvironmentVariable("TERMINAL") is { Length: > 0 } preferred && FindOnPath(preferred) is { } own)
+            return (own, known.FirstOrDefault(k => k.Name == Path.GetFileName(preferred)).Before ?? ["-e"]);
+        foreach (var (name, before) in known)
+            if (FindOnPath(name) is { } path) return (path, before);
+        return null;
+    }
+
+    /// <summary>What "outside the window" opens on this computer (Settings shows it).</summary>
+    public static string ExternalTerminalName =>
+        OperatingSystem.IsWindows() ? FindWindowsTerminal() != null ? "Windows Terminal" : "console"
+        : OperatingSystem.IsMacOS() ? "Terminal"
+        : FindLinuxTerminal() is { } t ? Path.GetFileName(t.Program) : "";
 
     /// <param name="remoteCommand">Command to run instead of a login shell (gets a TTY via -t).</param>
     public LaunchSpec BuildSpec(ServerEntry server, bool pauseOnError, string? remoteCommand = null, string? title = null)
@@ -117,13 +150,38 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
     {
         var mode = settings.Settings.Terminal;
         var wt = mode == TerminalMode.ConsoleWindow ? null : FindWindowsTerminal();
+        // a terminal that closes when ssh ends would take an error message with it
         var spec = BuildSpec(server, pauseOnError: wt == null, remoteCommand, title);
         var token = NewToken();
         _launches[token] = (spec, DateTime.UtcNow + LaunchTtl);
         Cleanup();
 
+        var (helper, helperArgs) = AppPaths.Helper;
         ProcessStartInfo psi;
-        if (wt != null)
+        if (OperatingSystem.IsMacOS())
+        {
+            // Terminal.app runs a command line: the helper and the one-time token (no secrets)
+            var line = string.Join(' ', new[] { helper }.Concat(helperArgs).Concat(["tab", token]).Select(RemoteShell.Quote));
+            psi = new ProcessStartInfo("osascript") { UseShellExecute = false };
+            foreach (var a in new[]
+                     {
+                         "-e", "tell application \"Terminal\"", "-e", "activate",
+                         "-e", $"do script \"{line.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"", "-e", "end tell",
+                     })
+                psi.ArgumentList.Add(a);
+            Process.Start(psi)?.Dispose();
+            MarkConnected(server);
+            return;
+        }
+        if (OperatingSystem.IsLinux())
+        {
+            var terminal = FindLinuxTerminal() ?? throw new InvalidOperationException(L.Get("Launch.NoTerminal"));
+            psi = new ProcessStartInfo(terminal.Program) { UseShellExecute = false };
+            foreach (var a in terminal.Before) psi.ArgumentList.Add(a);
+            psi.ArgumentList.Add(helper);
+            foreach (var a in helperArgs) psi.ArgumentList.Add(a);
+        }
+        else if (wt != null)
         {
             psi = new ProcessStartInfo(wt) { UseShellExecute = false };
             psi.ArgumentList.Add("-w");
@@ -147,7 +205,11 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
         psi.ArgumentList.Add("tab");
         psi.ArgumentList.Add(token);
         Process.Start(psi)?.Dispose();
+        MarkConnected(server);
+    }
 
+    private void MarkConnected(ServerEntry server)
+    {
         vault.Update(d =>
         {
             var s = d.Servers.FirstOrDefault(x => x.Id == server.Id);

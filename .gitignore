@@ -11,3 +11,6 @@ data-*/
 
 tools/codemirror/node_modules/
 artifacts/
+# Browser profile of the built-in terminal and editor (next to data / data-dev)
+webview/
+webview-*/

@@ -7,7 +7,7 @@ using Quaykeep.Core.Storage;
 namespace Quaykeep.Core.Agent;
 
 /// <summary>
-/// OpenSSH agent protocol (draft-miller-ssh-agent) over a Windows named pipe.
+/// OpenSSH agent protocol (draft-miller-ssh-agent) over a Windows named pipe, or a Unix socket on Linux / macOS.
 /// Serves the keys from the vault; external add/remove requests are refused.
 /// </summary>
 public sealed class SshAgentServer(VaultService vault) : PipeServerBase
@@ -26,7 +26,8 @@ public sealed class SshAgentServer(VaultService vault) : PipeServerBase
 
     public event EventHandler<string>? KeyUsed;
 
-    public string? PipePath => PipeName == null ? null : @"\\.\pipe\" + PipeName;
+    /// <summary>The value for SSH_AUTH_SOCK.</summary>
+    public string? PipePath => PipeName == null ? null : OperatingSystem.IsWindows() ? @"\\.\pipe\" + PipeName : PipeFactory.SocketPath(PipeName);
     public bool UsesDefaultPipe => PipeName == AppPaths.AgentPipeDefault;
 
     public bool Start() => Start(AppPaths.AgentPipeDefault, AppPaths.AgentPipeFallback);

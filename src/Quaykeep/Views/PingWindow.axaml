@@ -1,0 +1,24 @@
+<v:ToolWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.PingWindow"
+        Width="560" Height="460" MinWidth="420" MinHeight="300" ShowInTaskbar="True">
+    <Grid Margin="24,16,24,20" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <StackPanel Grid.Row="1" Margin="0,4,0,10">
+            <TextBlock x:Name="Stats" TextWrapping="Wrap" />
+            <TextBlock x:Name="Rtt" Classes="hint" />
+            <TextBlock x:Name="JumpNote" Classes="hint" Text="{l:Tr Ping.JumpHost}" IsVisible="False" Margin="0,4,0,0" />
+        </StackPanel>
+        <TextBox x:Name="Log" Grid.Row="2" IsReadOnly="True" TextWrapping="NoWrap" Classes="mono" AcceptsReturn="True"
+                 VerticalContentAlignment="Top"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+        <TextBlock x:Name="Blocked" Grid.Row="3" Classes="hint" Margin="0,8,0,0" IsVisible="False" />
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button x:Name="ToggleButton" Content="{l:Tr Ping.Stop}" Click="OnToggle" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="{l:Tr ScriptRun.Copy}" Click="OnCopy" MinWidth="100" Margin="0,0,8,0" />
+            <Button Content="{l:Tr Common.Close}" IsCancel="True" IsDefault="True" MinWidth="100" Click="OnClose" />
+        </StackPanel>
+    </Grid>
+</v:ToolWindow>

@@ -1,0 +1,77 @@
+# Builds and publishes the GitHub release v<version> (Directory.Build.props) with the installers for Windows, Linux and
+# macOS and Velopack's update feeds. Run it by hand: Actions → release → Run workflow (or `gh workflow run release`).
+# Bump <Version> and push to main first: the release is tagged on the commit the workflow runs on.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Release notes (markdown); empty = GitHub's generated notes
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  windows-linux:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build Windows and Linux packages
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QK_WIN_SIGN_PARAMS: ${{ secrets.QK_WIN_SIGN_PARAMS }}
+        run: ./release.ps1 -Platforms win,linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-win-linux
+          path: artifacts/release/
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build macOS packages (Apple Silicon and Intel)
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QK_MAC_APP_IDENTITY: ${{ secrets.QK_MAC_APP_IDENTITY }}
+          QK_MAC_INSTALL_IDENTITY: ${{ secrets.QK_MAC_INSTALL_IDENTITY }}
+          QK_MAC_NOTARY_PROFILE: ${{ secrets.QK_MAC_NOTARY_PROFILE }}
+        run: ./release.ps1 -Platforms osx -SkipTests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: artifacts/release/
+          if-no-files-found: error
+
+  publish:
+    needs: [windows-linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/parts
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          version=$(grep -oP '(?<=<Version>)[0-9]+\.[0-9]+\.[0-9]+(?=</Version>)' Directory.Build.props)
+          mkdir -p artifacts/release
+          # each part has its own feeds; packages of older versions (downloaded for deltas) stay on their releases
+          find artifacts/parts -type f \( ! -name '*.nupkg' -o -name "*-$version-*" \) -exec cp {} artifacts/release/ \;
+          ls -la artifacts/release
+          if [ -n "$NOTES" ]; then printf '%s\n' "$NOTES" > notes.md; set -- --notes-file notes.md; else set -- --generate-notes; fi
+          gh release create "v$version" artifacts/release/* --title "Quaykeep $version" --target "$GITHUB_SHA" "$@"

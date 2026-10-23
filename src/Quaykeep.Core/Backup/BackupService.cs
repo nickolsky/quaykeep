@@ -80,7 +80,7 @@ public sealed class BackupService(VaultService vault, SettingsService settings, 
     {
         var root = Path.GetFullPath(_dataDir);
         var exclude = Config.Target == BackupTarget.Folder && !string.IsNullOrWhiteSpace(Config.Folder)
-            ? Path.GetFullPath(Config.Folder).TrimEnd('\\') + "\\"
+            ? Path.TrimEndingDirectorySeparator(Path.GetFullPath(Config.Folder)) + Path.DirectorySeparatorChar
             : null;
         var files = vault.WithFilesLocked(() => Directory
             .EnumerateFiles(root, "*", SearchOption.AllDirectories)
@@ -173,7 +173,7 @@ public sealed class BackupService(VaultService vault, SettingsService settings, 
     public void Extract(byte[] zip)
     {
         if (vault.IsUnlocked) throw new InvalidOperationException("Lock the vault before restoring.");
-        var root = Path.GetFullPath(_dataDir).TrimEnd('\\') + "\\";
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_dataDir)) + Path.DirectorySeparatorChar;
         using var archive = new ZipArchive(new MemoryStream(zip), ZipArchiveMode.Read);
         vault.WithFilesLocked(() =>
         {
@@ -181,7 +181,7 @@ public sealed class BackupService(VaultService vault, SettingsService settings, 
             {
                 if (string.IsNullOrEmpty(entry.Name)) continue; // directory entry
                 var target = Path.GetFullPath(Path.Combine(root, entry.FullName));
-                if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue; // "../" in a crafted archive
+                if (!target.StartsWith(root, AppPaths.PathComparison)) continue; // "../" in a crafted archive
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 var tmp = target + ".tmp";
                 using (var s = entry.Open())

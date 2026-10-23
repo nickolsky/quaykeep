@@ -1,0 +1,101 @@
+<v:DialogWindow x:Class="Quaykeep.Views.ServerEditorWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        Title="{l:Tr Editor.Title}" Width="560" SizeToContent="Height" CanResize="False">
+    <StackPanel Margin="24,16,24,20">
+        <Grid ColumnDefinitions="*,16,*">
+            <StackPanel>
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Name}" />
+                <TextBox x:Name="NameBox" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Group}" />
+                <ComboBox x:Name="GroupBox" IsEditable="True" HorizontalAlignment="Stretch" ToolTip.Tip="{l:Tr Editor.GroupTip}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid ColumnDefinitions="*,16,90,16,140">
+            <StackPanel>
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Host}" />
+                <TextBox x:Name="HostBox" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Port}" />
+                <TextBox x:Name="PortBox" Text="22" />
+            </StackPanel>
+            <StackPanel Grid.Column="4">
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.User}" />
+                <TextBox x:Name="UserBox" Text="root" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Auth}" />
+        <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="AuthPassword" Content="{l:Tr Auth.Password}" GroupName="auth" IsCheckedChanged="OnAuthChanged" Margin="0,0,24,0" />
+            <RadioButton x:Name="AuthKey" Content="{l:Tr Editor.SshKey}" GroupName="auth" IsCheckedChanged="OnAuthChanged" />
+        </StackPanel>
+
+        <StackPanel x:Name="PasswordPanel">
+            <TextBlock Classes="fieldLabel" Text="{l:Tr Auth.Password}" />
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox x:Name="PasswordBox" PasswordChar="•" RevealPassword="{Binding #ShowPassword.IsChecked}" />
+                <ToggleButton x:Name="ShowPassword" Grid.Column="1" Content="{l:Tr Editor.Show}" Margin="6,0,0,0" />
+            </Grid>
+        </StackPanel>
+
+        <StackPanel x:Name="KeyPanel">
+            <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Key}" />
+            <Grid ColumnDefinitions="*,Auto">
+                <ComboBox x:Name="KeyBox" HorizontalAlignment="Stretch" DisplayMemberBinding="{Binding Name}" />
+                <Button Grid.Column="1" Content="{l:Tr Editor.NewKey}" Margin="6,0,0,0" Click="OnNewKey" />
+            </Grid>
+            <TextBlock Classes="hint" Margin="0,4,0,0" Text="{l:Tr Editor.KeyHint}" />
+        </StackPanel>
+
+        <Expander Header="{l:Tr Editor.Advanced}" Margin="0,14,0,0" HorizontalAlignment="Stretch">
+            <StackPanel>
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Jump}" />
+                <TextBox x:Name="JumpBox" />
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.ExtraArgs}" />
+                <TextBox x:Name="ExtraBox" />
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Monitor}" />
+                <TextBox x:Name="MonitorBox" Width="90" HorizontalAlignment="Left" />
+                <TextBlock x:Name="MonitorHint" Classes="hint" Margin="0,4,0,0" />
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Notes}" />
+                <TextBox x:Name="NotesBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="140"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </StackPanel>
+        </Expander>
+
+        <Expander x:Name="McpExpander" Header="{l:Tr Editor.Mcp}" Margin="0,10,0,0" HorizontalAlignment="Stretch">
+            <StackPanel>
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.McpAccess}" />
+                <ComboBox x:Name="McpBox" HorizontalAlignment="Stretch" SelectionChanged="OnMcpChanged" />
+                <TextBlock x:Name="McpHint" Classes="hint" Margin="0,4,0,0" />
+                <StackPanel x:Name="McpFoldersPanel">
+                    <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.McpFolders}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ListBox x:Name="McpFolderList" MinHeight="54" MaxHeight="120" />
+                        <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                            <Button Content="{l:Tr Editor.McpAddFolder}" Click="OnAddMcpFolder" MinWidth="90" HorizontalAlignment="Stretch" />
+                            <Button Content="{l:Tr Editor.McpRemoveFolder}" Click="OnRemoveMcpFolder" MinWidth="90" Margin="0,6,0,0"
+                                    HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Classes="hint" Margin="0,4,0,0" Text="{l:Tr Editor.McpFoldersHint}" />
+                </StackPanel>
+                <TextBlock x:Name="McpGlobalOff" Classes="hint" Margin="0,6,0,0" Foreground="#D08A00"
+                           Text="{l:Tr Editor.McpGlobalOff}" />
+            </StackPanel>
+        </Expander>
+
+        <TextBlock x:Name="Error" Foreground="#E0443E" TextWrapping="Wrap" Margin="0,10,0,0" IsVisible="False" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="{l:Tr Common.Save}" IsDefault="True" Click="OnSave" Classes="accent" MinWidth="110" HorizontalContentAlignment="Center" />
+            <Button Content="{l:Tr Common.Cancel}" IsCancel="True" Classes="dialog" />
+        </StackPanel>
+    </StackPanel>
+</v:DialogWindow>

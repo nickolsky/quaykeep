@@ -1,0 +1,25 @@
+<v:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.FirewallCopyWindow"
+        Title="{l:Tr Fw.CopyTitle}" Width="520" Height="560" MinWidth="420" MinHeight="400">
+    <Grid Margin="20,14,20,18" RowDefinitions="Auto,*,Auto,Auto">
+        <TextBlock x:Name="HintText" Classes="hint" Margin="0,0,0,10" />
+        <ListBox x:Name="ServersList" Grid.Row="1">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox IsChecked="{Binding Checked}" Content="{Binding Label}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel Grid.Row="2" Margin="0,12,0,0">
+            <RadioButton x:Name="AddRadio" Content="{l:Tr Fw.CopyAdd}" IsChecked="True" GroupName="copyMode" />
+            <RadioButton x:Name="ReplaceRadio" Content="{l:Tr Fw.CopyReplace}" GroupName="copyMode" />
+        </StackPanel>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="{l:Tr Fw.CopyRun}" IsDefault="True" Click="OnOk" Classes="accent" MinWidth="150" />
+            <Button Content="{l:Tr Common.Cancel}" IsCancel="True" Classes="dialog" />
+        </StackPanel>
+    </Grid>
+</v:DialogWindow>

@@ -24,7 +24,8 @@ public static partial class ShellIntegration
 
     /// <summary>
     /// Writes the script (when this version is not there yet) and prints the login shell and the file path.
-    /// Plain sh, so it works whatever the login shell is; the script goes in through a quoted here-document.
+    /// Plain sh, so it works whatever the login shell is; the script goes in through a quoted here-document. LF only:
+    /// a checkout with CRLF line endings puts them into the raw string, and the here-document never ends.
     /// </summary>
     public static string SetupCommand() =>
         $$"""
@@ -36,7 +37,7 @@ public static partial class ShellIntegration
         __SSHM_EOF__
         [ -f "$f" ] || exit 1
         printf '%s\n%s\n' "${SHELL##*/}" "$f"
-        """;
+        """.Replace("\r\n", "\n");
 
     /// <summary>Login shell name and script path from the setup output.</summary>
     public static (string? Shell, string? File) ParseSetup(string output)

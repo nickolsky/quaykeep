@@ -1,6 +1,6 @@
 using System.ComponentModel;
-using System.Windows.Data;
-using System.Windows.Markup;
+using Avalonia.Data;
+using Avalonia.Markup.Xaml;
 
 namespace Quaykeep.Localization;
 
@@ -17,7 +17,6 @@ public sealed class Loc : INotifyPropertyChanged
 }
 
 /// <summary><c>{l:Tr Main.Connect}</c> — a translated string that follows language switches.</summary>
-[MarkupExtensionReturnType(typeof(object))]
 public sealed class TrExtension : MarkupExtension
 {
     public TrExtension()
@@ -26,9 +25,8 @@ public sealed class TrExtension : MarkupExtension
 
     public TrExtension(string key) => Key = key;
 
-    [ConstructorArgument("key")]
     public string Key { get; set; } = "";
 
     public override object ProvideValue(IServiceProvider serviceProvider) =>
-        new Binding($"[{Key}]") { Source = Loc.Instance, Mode = BindingMode.OneWay }.ProvideValue(serviceProvider);
+        new Binding($"[{Key}]") { Source = Loc.Instance, Mode = BindingMode.OneWay };
 }

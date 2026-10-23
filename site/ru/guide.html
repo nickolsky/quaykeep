@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Инструкция · Quaykeep</title>
+<meta name="description" content="Как установить Quaykeep в Windows, macOS и Linux, пользоваться встроенным SSH-агентом и командой qk, подключить ИИ-агентов по MCP.">
+<link rel="icon" href="../icon.png">
+<link rel="stylesheet" href="../style.css?v=1">
+<link rel="alternate" hreflang="en" href="../guide.html">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="../icon.png" alt="">Quaykeep</a>
+    <nav>
+      <a href="./#download">Скачать</a>
+      <a class="hide-sm" href="https://github.com/nickolsky/quaykeep">GitHub</a>
+      <a class="lang" href="../guide.html" hreflang="en">EN</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap doc">
+  <nav class="toc">
+    <a href="#install">Установка</a>
+    <a href="#windows">· Windows</a>
+    <a href="#macos">· macOS</a>
+    <a href="#linux">· Linux</a>
+    <a href="#first">Первый запуск</a>
+    <a href="#connect">Подключение</a>
+    <a href="#agent">SSH-агент</a>
+    <a href="#qk">Команда qk</a>
+    <a href="#mcp">ИИ-агенты (MCP)</a>
+    <a href="#updates">Обновления</a>
+    <a href="#data">Данные, бэкапы, переезд</a>
+    <a href="#uninstall">Удаление</a>
+    <a href="#trouble">Если что-то не так</a>
+  </nav>
+  <article>
+    <h1>Инструкция</h1>
+    <p>Quaykeep работает в Windows 10/11, macOS 14+ и 64-битном Linux. Больше ничего ставить не нужно: среда .NET уже внутри
+      пакета. Сессии вне встроенного терминала используют системный клиент OpenSSH (<code>ssh</code>), он есть в каждой из этих ОС.</p>
+
+    <h2 id="install">Установка</h2>
+    <div class="os-tabs"><a href="#windows">Windows</a><a href="#macos">macOS</a><a href="#linux">Linux</a></div>
+
+    <h3 id="windows">Windows</h3>
+    <ol>
+      <li>Скачайте <a href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-win-x64-Setup.exe">Quaykeep-win-x64-Setup.exe</a> и запустите.
+        Программа ставится для вашего пользователя в <code>%LOCALAPPDATA%\QuaykeepApp</code> (без прав администратора) и появляется в меню «Пуск».</li>
+      <li>Если SmartScreen пишет «Система Windows защитила ваш компьютер», нажмите <b>Подробнее → Выполнить в любом случае</b> (установщик не подписан).</li>
+    </ol>
+    <p><b>Портативно:</b> <a href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-win-x64-Portable.zip">Quaykeep-win-x64-Portable.zip</a>
+      работает из любой папки (флешка, <code>C:\Tools</code>), данные хранит рядом с собой и тоже обновляется сама.</p>
+    <div class="note"><b>Уже пользуетесь копией из zip (1.0.x или SSH Manager)?</b> Она продолжит обновляться на месте,
+      вместе со своей папкой <code>data</code>. Чтобы перейти на установщик, выйдите из старой копии через трей, установите
+      программу и до первого запуска скопируйте старую папку <code>data</code> в <code>%LOCALAPPDATA%\Quaykeep\data</code>.</div>
+
+    <h3 id="macos">macOS</h3>
+    <ol>
+      <li>Скачайте пакет для своего Mac: <a href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-osx-arm64.pkg">Apple Silicon</a>
+        (меню Apple → «Об этом Mac» показывает «Apple M…») или <a href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-osx-x64.pkg">Intel</a>.</li>
+      <li>Откройте .pkg. Если macOS пишет, что не может его проверить, откройте <b>Системные настройки → Конфиденциальность и безопасность</b>,
+        прокрутите вниз, нажмите <b>Всё равно открыть</b> и снова откройте пакет. То же может случиться при первом запуске программы.</li>
+      <li>Quaykeep устанавливается в <code>/Applications/Quaykeep.app</code>. Его значок живёт в <b>строке меню</b>; закрытие
+        окна оставляет программу там (SSH-агент продолжает работать).</li>
+    </ol>
+    <p>Вместо шага 2 для уже установленной программы можно в Терминале: <code>xattr -dr com.apple.quarantine /Applications/Quaykeep.app</code></p>
+
+    <h3 id="linux">Linux</h3>
+<pre>chmod +x Quaykeep-linux-x64.AppImage
+./Quaykeep-linux-x64.AppImage</pre>
+    <p>Положите файл в постоянное место (например, <code>~/Applications</code>): на него указывают автозапуск и настройка
+      ИИ-агентов, а обновления заменяют его на месте. На свежем рабочем столе могут не найтись две системные библиотеки:</p>
+    <div class="table-scroll"><table>
+      <tr><th>Дистрибутив</th><th>Команда</th></tr>
+      <tr><td>Ubuntu 24.04+, Debian 13</td><td><code>sudo apt install libfuse2t64 libwebkit2gtk-4.1-0</code></td></tr>
+      <tr><td>Ubuntu 22.04, Debian 12</td><td><code>sudo apt install libfuse2 libwebkit2gtk-4.1-0</code></td></tr>
+      <tr><td>Fedora</td><td><code>sudo dnf install fuse-libs webkit2gtk4.1</code></td></tr>
+      <tr><td>Arch</td><td><code>sudo pacman -S fuse2 webkit2gtk-4.1</code></td></tr>
+    </table></div>
+    <p>FUSE запускает AppImage; WebKitGTK рисует встроенные терминал и редактор (всё остальное работает и без него).
+      В GNOME для значка в трее нужно расширение <b>AppIndicator</b> (в Ubuntu оно уже есть).</p>
+
+    <h2 id="first">Первый запуск</h2>
+    <p>Quaykeep попросит <b>мастер-пароль</b>: им шифруется хранилище с серверами, паролями и ключами (AES-256-GCM, ключ из
+      Argon2id). <b>Забытый мастер-пароль восстановить невозможно</b> — сохраните его в менеджере паролей.</p>
+    <p>Ещё программа предложит запускаться при входе в систему. Запущенная так, она сразу уходит в трей заблокированной;
+      окно разблокировки появляется, когда вы подключаетесь или кто-то просит ключ у SSH-агента. Это меняется в
+      <b>Настройки → Запуск и трей</b>.</p>
+    <p>Сервер добавляется по <kbd>Ctrl</kbd>+<kbd>N</kbd> (имя, адрес, пользователь, пароль или ключ). Всё остальное — в меню
+      по правому щелчку: файлы, скрипты установки, пробросы портов, файрвол, мониторинг, «Настроить вход по ключу».</p>
+
+    <h2 id="connect">Подключение</h2>
+    <p>Двойной щелчок по серверу (или <kbd>Enter</kbd>). Где откроется сессия, задаётся в <b>Настройки → Терминал</b>:</p>
+    <ul>
+      <li><b>Встроенный терминал</b> — вкладки в окне Quaykeep с подсказками из истории сервера, команд, файлов, контейнеров и
+        служб; <code>edit ФАЙЛ</code> открывает файл во встроенном редакторе. По умолчанию в macOS и Linux.</li>
+      <li><b>Windows Terminal</b> (вкладка или окно) или окно консоли — Windows.</li>
+      <li><b>Системный терминал</b> — Terminal.app в macOS; в Linux <code>$TERMINAL</code> или первый из x-terminal-emulator,
+        gnome-terminal, konsole, xfce4-terminal, kitty, alacritty, wezterm, foot, xterm.</li>
+    </ul>
+    <p>Серверы с jump-хостом или дополнительными параметрами ssh всегда открываются во внешнем терминале (им нужен OpenSSH).
+      Пароль передаётся ssh через <code>SSH_ASKPASS</code>, ключ — через агент: ни то ни другое не попадает в командную строку и на диск.</p>
+
+    <h2 id="agent">SSH-агент</h2>
+    <p>Пока Quaykeep работает, его агент отдаёт ключи из хранилища программам <code>ssh</code>, <code>git</code>, VS Code
+      Remote-SSH и всем, кто говорит на протоколе агента OpenSSH. Пока хранилище заблокировано, запрос открывает окно
+      разблокировки. Точный адрес агента показан в строке состояния главного окна.</p>
+    <h3>Windows</h3>
+    <p>Агент занимает стандартный канал <code>\\.\pipe\openssh-ssh-agent</code>, с которым ssh.exe, git и VS Code работают без
+      настройки. Если его уже занял другой агент (1Password, служба Windows «OpenSSH Authentication Agent»), Quaykeep
+      использует <code>\\.\pipe\quaykeep-agent-&lt;пользователь&gt;</code>; укажите его программам так:</p>
+<pre>[Environment]::SetEnvironmentVariable('SSH_AUTH_SOCK', '\\.\pipe\quaykeep-agent-<i>пользователь</i>', 'User')</pre>
+    <h3>macOS</h3>
+    <p>Агент — сокет <code>~/.quaykeep-agent.sock</code>. Добавьте в <code>~/.zshrc</code>:</p>
+<pre>export SSH_AUTH_SOCK="$HOME/.quaykeep-agent.sock"</pre>
+    <p>или, только для ssh, в <code>~/.ssh/config</code>:</p>
+<pre>Host *
+  IdentityAgent ~/.quaykeep-agent.sock</pre>
+    <h3>Linux</h3>
+    <p>Сокет — <code>$XDG_RUNTIME_DIR/quaykeep-agent.sock</code> (обычно <code>/run/user/1000/…</code>), без
+      XDG_RUNTIME_DIR — <code>~/.quaykeep-agent.sock</code>. Добавьте в <code>~/.bashrc</code> / <code>~/.zshrc</code>:</p>
+<pre>export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/quaykeep-agent.sock"</pre>
+    <p>Сессии, запущенные из Quaykeep, получают нужный агент сами, что бы ни было в настройках оболочки.</p>
+
+    <h2 id="qk">Команда qk</h2>
+    <p><code>qk &lt;сервер&gt;</code> подключается к сохранённому серверу прямо в текущем терминале, <code>qk list</code>
+      показывает список, <code>qk cron &lt;сервер&gt;</code> — задания по расписанию. Команда обращается к запущенной программе
+      (и запускает её в трее, если нужно).</p>
+    <div class="table-scroll"><table>
+      <tr><th>ОС</th><th>Где qk</th><th>Как сделать командой</th></tr>
+      <tr><td>Windows</td><td><code>%LOCALAPPDATA%\QuaykeepApp\current\qk.exe</code></td><td>добавить эту папку в PATH</td></tr>
+      <tr><td>macOS</td><td><code>/Applications/Quaykeep.app/Contents/MacOS/qk</code></td><td><code>sudo ln -s /Applications/Quaykeep.app/Contents/MacOS/qk /usr/local/bin/qk</code></td></tr>
+      <tr><td>Linux</td><td>внутри AppImage</td><td><code>alias qk="$HOME/Applications/Quaykeep-linux-x64.AppImage qk"</code> в ~/.bashrc</td></tr>
+    </table></div>
+    <p>Точный путь к помощнику вашей копии — в <b>Настройки → Терминал</b>.</p>
+
+    <h2 id="mcp">ИИ-агенты (MCP)</h2>
+    <p>Включается в <b>Настройки → ИИ-агенты (MCP)</b>. Там же готовая команда для вашей копии с кнопкой «Копировать»;
+      для справки:</p>
+<pre><span style="opacity:.6"># Claude Code — Windows</span>
+claude mcp add --scope user quaykeep -- "%LOCALAPPDATA%\QuaykeepApp\current\qk.exe" mcp
+<span style="opacity:.6"># Claude Code — macOS</span>
+claude mcp add --scope user quaykeep -- "/Applications/Quaykeep.app/Contents/MacOS/qk" mcp
+<span style="opacity:.6"># Claude Code — Linux (AppImage)</span>
+claude mcp add --scope user quaykeep -- "$HOME/Applications/Quaykeep-linux-x64.AppImage" qk mcp</pre>
+<pre><span style="opacity:.6"># Codex — ~/.codex/config.toml (пример для macOS)</span>
+[mcp_servers.quaykeep]
+command = '/Applications/Quaykeep.app/Contents/MacOS/qk'
+args = ["mcp"]
+tool_timeout_sec = 900</pre>
+    <p>Затем для каждого сервера выберите, что можно агенту: правый щелчок → <b>Доступ для ИИ-агента ▸</b> (по умолчанию
+      выключен; только чтение, чтение и перезагрузка, команды меню, полный доступ). Перезагрузка и удаление сначала
+      спрашивают вас, каждый вызов виден в журнале агента. Для клиентов, которые не умеют запускать программу, есть ещё
+      HTTP на 127.0.0.1 с токеном.</p>
+
+    <h2 id="updates">Обновления</h2>
+    <p>Раз в день Quaykeep проверяет релизы этого проекта на GitHub (в <b>Настройки → Обновления</b> есть «Проверить
+      обновления» и «Обновить и перезапустить»). Установленные копии скачивают только изменения; обновление применяется при
+      перезапуске. Папка данных в обновление никогда не входит.</p>
+
+    <h2 id="data">Данные, бэкапы, переезд на другой компьютер</h2>
+    <div class="table-scroll"><table>
+      <tr><th>Копия</th><th>Папка данных</th></tr>
+      <tr><td>Windows, установщик</td><td><code>%LOCALAPPDATA%\Quaykeep\data</code></td></tr>
+      <tr><td>Windows, zip</td><td><code>data</code> рядом с программой</td></tr>
+      <tr><td>macOS</td><td><code>~/Library/Application Support/Quaykeep/data</code></td></tr>
+      <tr><td>Linux</td><td><code>~/.local/share/Quaykeep/data</code></td></tr>
+    </table></div>
+    <p><code>QUAYKEEP_DATA=/путь</code> задаёт другую папку. <b>Настройки → Бэкап</b> упаковывает всю папку в архив в
+      локальной папке или на сервере по SFTP (вручную или каждые N часов). Чтобы переехать на другой компьютер — в любой ОС —
+      установите там Quaykeep и выберите <b>Файл → Восстановить из бэкапа</b> с вашим мастер-паролем.</p>
+
+    <h2 id="uninstall">Удаление</h2>
+    <ul>
+      <li><b>Windows:</b> Параметры → Приложения → Quaykeep → Удалить. Папка данных остаётся; удалите <code>%LOCALAPPDATA%\Quaykeep</code>, чтобы убрать и её.</li>
+      <li><b>macOS:</b> выйдите через строку меню, перенесите <code>/Applications/Quaykeep.app</code> в Корзину и при желании
+        удалите <code>~/Library/Application Support/Quaykeep</code> и <code>~/Library/LaunchAgents/app.quaykeep.plist</code>.</li>
+      <li><b>Linux:</b> выйдите через трей, удалите AppImage, <code>~/.local/share/Quaykeep</code> и <code>~/.config/autostart/quaykeep.desktop</code>.</li>
+    </ul>
+
+    <h2 id="trouble">Если что-то не так</h2>
+    <ul>
+      <li><b>Во встроенном терминале сообщение о веб-движке</b> — Windows: установите
+        <a href="https://developer.microsoft.com/microsoft-edge/webview2/">WebView2 Runtime</a> (есть в Windows 11);
+        Linux: установите WebKitGTK (см. <a href="#linux">выше</a>); или выберите другой терминал в настройках.</li>
+      <li><b>Нет значка в трее в GNOME</b> — включите расширение AppIndicator; окно открывается и через меню приложений.</li>
+      <li><b>«Блокировать, когда блокируется компьютер» не срабатывает в Linux</b> — программа слушает хранитель экрана и
+        logind по D-Bus; большинство окружений их отправляют, некоторые минимальные оконные менеджеры — нет.</li>
+      <li><b>Глобальная клавиша (Win+Alt+X)</b> есть только в Windows.</li>
+      <li>Что-то ещё? <a href="https://github.com/nickolsky/quaykeep/issues">Напишите в issues</a>.</li>
+    </ul>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>Quaykeep · лицензия MIT</span>
+    <span><a href="./">Главная</a> · <a href="https://github.com/nickolsky/quaykeep">Исходники</a> · <a href="../guide.html">In English</a></span>
+  </div>
+</footer>
+</body>
+</html>

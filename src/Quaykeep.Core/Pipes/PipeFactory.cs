@@ -1,4 +1,6 @@
 using System.IO.Pipes;
+using System.Net.Sockets;
+using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 
@@ -6,8 +8,54 @@ namespace Quaykeep.Core.Pipes;
 
 internal static class PipeFactory
 {
-    /// <summary>Named pipe instance accessible only to the current Windows user.</summary>
+    /// <summary>
+    /// Named pipe instance accessible only to the current user. Windows: an ACL with only this user. Linux / macOS: .NET
+    /// makes a Unix socket (the name itself when it is a path, else CoreFxPipe_&lt;name&gt; in the temp folder) that
+    /// CurrentUserOnly limits to this user.
+    /// </summary>
     public static NamedPipeServerStream Create(string name, bool first)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            if (first) RemoveStaleSocket(name);
+            return new NamedPipeServerStream(name, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances,
+                PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        }
+        return CreateWindows(name, first);
+    }
+
+    /// <summary>The socket file of a pipe on Linux / macOS.</summary>
+    public static string SocketPath(string name) => Path.IsPathRooted(name) ? name : Path.Combine(Path.GetTempPath(), "CoreFxPipe_" + name);
+
+    /// <summary>
+    /// A socket file left by a process that died blocks the name. One that nobody answers on is removed; one that answers
+    /// belongs to a running copy, and creating the pipe then fails as it should.
+    /// </summary>
+    private static void RemoveStaleSocket(string name)
+    {
+        var path = SocketPath(name);
+        if (!File.Exists(path)) return;
+        try
+        {
+            using var probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            probe.Connect(new UnixDomainSocketEndPoint(path));
+        }
+        catch (SocketException)
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+            return;
+        }
+        throw new IOException($"{path} is in use");
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static NamedPipeServerStream CreateWindows(string name, bool first)
     {
         var security = new PipeSecurity();
         var me = WindowsIdentity.GetCurrent().User!;

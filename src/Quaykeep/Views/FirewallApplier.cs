@@ -1,5 +1,6 @@
 using System.Net;
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Threading;
 using Quaykeep.Core.Firewall;
 using Quaykeep.Core.Models;
 using Quaykeep.Services;
@@ -8,7 +9,7 @@ namespace Quaykeep.Views;
 
 /// <summary>
 /// Applies what the vault holds for each server (its own rules and its presets), one server after another, from a
-/// window's background task. Asks on the window's thread before a set that would refuse SSH from this PC; each server
+/// window's background task. Asks on the UI thread before a set that would refuse SSH from this PC; each server
 /// keeps its new rules only when a new login to it works (<see cref="FirewallService.Apply"/>).
 /// </summary>
 internal static class FirewallApplier
@@ -32,7 +33,7 @@ internal static class FirewallApplier
                     lock (clients) clients[server.Id] = found;
                 }
                 if (me != null && FirewallRules.CutsSsh(effective, server.Port, me) &&
-                    !owner.Dispatcher.Invoke(() => MessageBox.Show(owner, L.F("Fw.ConfirmCutsSsh", server.Name, me), owner.Title,
+                    !Dispatcher.UIThread.Invoke(() => MessageBox.Show(owner, L.F("Fw.ConfirmCutsSsh", server.Name, me), owner.Title ?? "",
                         MessageBoxButton.OKCancel, MessageBoxImage.Warning) == MessageBoxResult.OK))
                 {
                     log(L.F("Fw.Skipped", server.Name));

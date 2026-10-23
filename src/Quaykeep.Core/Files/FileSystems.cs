@@ -66,7 +66,7 @@ public static class FileSystems
         (remote || name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0);
 }
 
-/// <summary>This PC: drives at the top, then Windows paths.</summary>
+/// <summary>This PC: Windows drives at the top, then their paths; "/" at the top on Linux / macOS.</summary>
 public sealed class LocalFileSystem : IFileSystem
 {
     public bool IsRemote => false;
@@ -77,20 +77,23 @@ public sealed class LocalFileSystem : IFileSystem
     public string? Parent(string path)
     {
         if (path.Length == 0) return null;
-        // a drive root goes up to the drive list
-        return new DirectoryInfo(path).Parent?.FullName ?? "";
+        // Windows: a drive root goes up to the drive list (""); Linux / macOS: "/" is the top
+        var parent = new DirectoryInfo(path).Parent?.FullName;
+        return parent ?? (OperatingSystem.IsWindows() ? "" : null);
     }
 
     public string Normalize(string path)
     {
         path = path.Trim().Trim('"');
-        if (path.Length == 0) return "";
+        if (path.Length == 0) return OperatingSystem.IsWindows() ? "" : "/";
         if (path.Length == 2 && path[1] == ':') path += "\\";
+        if (!OperatingSystem.IsWindows() && (path == "~" || path.StartsWith("~/", StringComparison.Ordinal))) path = Home + path[1..];
         return Path.GetFullPath(Environment.ExpandEnvironmentVariables(path));
     }
 
     public IReadOnlyList<FileItem> List(string path)
     {
+        if (path.Length == 0 && !OperatingSystem.IsWindows()) path = "/";
         if (path.Length == 0)
             return DriveInfo.GetDrives().Where(d => d.IsReady)
                 .Select(d => new FileItem(d.Name.TrimEnd('\\') + (string.IsNullOrEmpty(d.VolumeLabel) ? "" : $"  {d.VolumeLabel}"), d.RootDirectory.FullName,

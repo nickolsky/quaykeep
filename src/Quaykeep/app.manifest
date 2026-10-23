@@ -9,7 +9,7 @@
   </compatibility>
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
-      <!-- Per-monitor DPI: sharp windows on every monitor, and the tray menu (WinForms) opens where the mouse is.
+      <!-- Per-monitor DPI: sharp windows on every monitor, and the tray menu opens where the mouse is.
            As "system aware" Windows scaled coordinates on monitors with another scale, and the menu landed on another screen. -->
       <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/PM</dpiAware>
       <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>

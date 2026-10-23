@@ -1,24 +1,16 @@
-using System.Diagnostics;
-using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
+using Avalonia.Controls;
 
 namespace Quaykeep.Views.Controls;
 
 /// <summary>
-/// Read-only terminal (xterm.js in WebView2, Assets\terminal\log.html) that shows ANSI text written by the app:
-/// the agent log as a console session. Text written before the page is ready is kept and sent once it is.
+/// Read-only terminal (xterm.js in the system web view, Assets\terminal\log.html) that shows ANSI text written by the
+/// app: the agent log as a console session. Text written before the page is ready is kept and sent once it is.
 /// </summary>
 public sealed class LogConsoleView : Border, IDisposable
 {
-    private const string HostName = "sshm-log.local";
-
-    private readonly WebView2 _web = new();
+    private readonly WebPage _web = new("terminal", "log.html", contextMenu: false);
     private readonly StringBuilder _early = new();
     private bool _ready;
     private bool _disposed;
@@ -26,8 +18,8 @@ public sealed class LogConsoleView : Border, IDisposable
     public LogConsoleView()
     {
         Child = _web;
-        _web.DefaultBackgroundColor = System.Drawing.Color.Transparent;
-        Loaded += OnLoaded;
+        _web.MessageReceived += OnMessage;
+        ActualThemeVariantChanged += (_, _) => SendTheme();
     }
 
     /// <summary>Replaces everything shown and scrolls to the end.</summary>
@@ -44,51 +36,10 @@ public sealed class LogConsoleView : Border, IDisposable
         else _early.Append(ansi);
     }
 
-    public new void Focus() => _web.Focus();
+    public void Focus() => _web.FocusPage();
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    private void OnMessage(JsonElement m)
     {
-        Loaded -= OnLoaded;
-        try
-        {
-            await _web.EnsureCoreWebView2Async(await TerminalView.Environment());
-        }
-        catch (Exception ex)
-        {
-            Child = new TextBlock { Text = L.F("Term.WebViewMissing", ex.Message), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16) };
-            return;
-        }
-        if (_disposed) return;
-        var core = _web.CoreWebView2;
-        var s = core.Settings;
-        s.AreDefaultContextMenusEnabled = false;
-        s.AreDevToolsEnabled = Debugger.IsAttached;
-        s.AreBrowserAcceleratorKeysEnabled = false;
-        s.IsStatusBarEnabled = false;
-        s.IsZoomControlEnabled = false;
-        s.IsPinchZoomEnabled = false;
-        core.SetVirtualHostNameToFolderMapping(HostName, Path.Combine(AppContext.BaseDirectory, "Assets", "terminal"),
-            CoreWebView2HostResourceAccessKind.Deny);
-        core.NewWindowRequested += (_, a) => a.Handled = true;
-        core.NavigationStarting += (_, a) =>
-        {
-            if (!a.Uri.StartsWith($"https://{HostName}/", StringComparison.OrdinalIgnoreCase)) a.Cancel = true;
-        };
-        core.WebMessageReceived += OnMessage;
-        core.Navigate($"https://{HostName}/log.html");
-    }
-
-    private void OnMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
-    {
-        JsonElement m;
-        try
-        {
-            m = JsonDocument.Parse(e.WebMessageAsJson).RootElement;
-        }
-        catch (JsonException)
-        {
-            return;
-        }
         string S(string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
         switch (S("t"))
         {
@@ -100,21 +51,11 @@ public sealed class LogConsoleView : Border, IDisposable
                 _early.Clear();
                 break;
             case "copy":
-                if (S("d") is { Length: > 0 } copied)
-                {
-                    try
-                    {
-                        Clipboard.SetText(copied);
-                    }
-                    catch (System.Runtime.InteropServices.COMException)
-                    {
-                        // the clipboard is busy in another program
-                    }
-                }
+                if (S("d") is { Length: > 0 } copied) Clipboard.SetText(copied);
                 break;
             case "link":
                 if (Uri.TryCreate(S("url"), UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
-                    Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true })?.Dispose();
+                    UiExtensions.OpenWithShell(uri.AbsoluteUri);
                 break;
         }
     }
@@ -122,21 +63,13 @@ public sealed class LogConsoleView : Border, IDisposable
     /// <summary>Dark or light palette on the app's background colour.</summary>
     public void SendTheme()
     {
-        var bg = (TryFindResource("SolidBackgroundFillColorQuarternaryBrush") as SolidColorBrush)?.Color ?? Colors.Black;
-        var dark = 0.2126 * bg.R + 0.7152 * bg.G + 0.0722 * bg.B < 128;
-        Post(new { t = "theme", dark, bg = $"#{bg.R:x2}{bg.G:x2}{bg.B:x2}" });
+        var (dark, bg) = WebPage.PageTheme(this);
+        Post(new { t = "theme", dark, bg });
     }
 
     private void Post(object message)
     {
-        if (!_ready || _disposed || _web.CoreWebView2 == null) return;
-        try
-        {
-            _web.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message));
-        }
-        catch (InvalidOperationException)
-        {
-        }
+        if (_ready && !_disposed) _web.Post(message);
     }
 
     public void Dispose()

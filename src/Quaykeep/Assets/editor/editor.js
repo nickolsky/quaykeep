@@ -131,7 +131,7 @@
 
   let isDark = true;
   document.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return;
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     zoom(e.deltaY < 0 ? 1 : -1);
   }, { passive: false });

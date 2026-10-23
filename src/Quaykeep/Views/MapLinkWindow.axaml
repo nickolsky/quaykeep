@@ -1,0 +1,54 @@
+<v:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.MapLinkWindow"
+        Title="{l:Tr Map.LinkTitle}" Width="620" SizeToContent="Height" CanResize="False">
+    <StackPanel Margin="22,16,22,18">
+        <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Classes="hint" Text="{l:Tr Map.LinkHint}" Margin="0,6,0,4" />
+
+        <Grid Margin="0,6,0,0" ColumnDefinitions="110,12,110,12,*,12,110">
+            <StackPanel>
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Fw.Protocol}" />
+                <ComboBox x:Name="ProtoBox" SelectedIndex="0" HorizontalAlignment="Stretch">
+                    <ComboBoxItem Content="tcp" />
+                    <ComboBoxItem Content="udp" />
+                    <ComboBoxItem Content="tcp+udp" />
+                </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock x:Name="ListenLabel" Classes="fieldLabel" TextTrimming="CharacterEllipsis" />
+                <TextBox x:Name="ListenBox" ToolTip.Tip="{l:Tr Map.PortTip}" />
+            </StackPanel>
+            <StackPanel Grid.Column="4">
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Map.TargetAddress}" />
+                <ComboBox x:Name="TargetBox" IsEditable="True" HorizontalAlignment="Stretch" />
+            </StackPanel>
+            <StackPanel Grid.Column="6">
+                <TextBlock x:Name="TargetPortLabel" Classes="fieldLabel" TextTrimming="CharacterEllipsis" />
+                <TextBox x:Name="TargetPortBox" ToolTip.Tip="{l:Tr Map.TargetPortTip}" />
+            </StackPanel>
+        </Grid>
+
+        <Border Margin="0,16,0,0" Padding="12,10" CornerRadius="6" BorderThickness="1"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+            <StackPanel>
+                <TextBlock x:Name="EntryText" TextWrapping="Wrap" />
+                <TextBlock x:Name="VerdictText" TextWrapping="Wrap" Margin="0,6,0,0" />
+                <CheckBox x:Name="AllowBox" Margin="0,8,0,0" IsVisible="False" IsChecked="True">
+                    <TextBlock x:Name="AllowText" TextWrapping="Wrap" />
+                </CheckBox>
+                <TextBlock x:Name="ProblemText" TextWrapping="Wrap" Margin="0,6,0,0" IsVisible="False"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                <TextBlock x:Name="WarningText" TextWrapping="Wrap" Margin="0,6,0,0" IsVisible="False"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button x:Name="OkButton" Content="{l:Tr Map.AddToPlan}" IsDefault="True" Click="OnOk" Classes="accent" MinWidth="150" />
+            <Button Content="{l:Tr Common.Cancel}" IsCancel="True" Classes="dialog" />
+        </StackPanel>
+    </StackPanel>
+</v:DialogWindow>

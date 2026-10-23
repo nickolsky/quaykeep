@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="using:Quaykeep.Localization"
+        xmlns:c="using:Quaykeep.Views.Controls"
+        x:Class="Quaykeep.Views.AgentLogWindow"
+        Title="{l:Tr AgentLog.Title}" Width="1100" Height="620" MinWidth="600" MinHeight="300"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16,12,16,14">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock Text="{l:Tr AgentLog.Server}" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox x:Name="ServerBox" MinWidth="260" SelectionChanged="OnServerChanged" />
+            <!-- console / lines: two toggle buttons that work like radio buttons -->
+            <StackPanel Orientation="Horizontal" Margin="16,0,0,0">
+                <ToggleButton x:Name="ConsoleMode" Content="{l:Tr AgentLog.Console}" ToolTip.Tip="{l:Tr AgentLog.ConsoleTip}"
+                              MinWidth="90" IsChecked="True" Click="OnViewClicked" HorizontalContentAlignment="Center" />
+                <ToggleButton x:Name="LinesMode" Content="{l:Tr AgentLog.Lines}" ToolTip.Tip="{l:Tr AgentLog.LinesTip}"
+                              MinWidth="90" Margin="4,0,0,0" Click="OnViewClicked" HorizontalContentAlignment="Center" />
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <ToggleButton x:Name="PauseButton" Content="{l:Tr AgentLog.Pause}" Margin="0,0,8,0" MinWidth="90" HorizontalContentAlignment="Center" />
+                <Button Content="{l:Tr AgentLog.OpenFolder}" Click="OnOpenFolder" MinWidth="90" HorizontalContentAlignment="Center" />
+            </StackPanel>
+        </DockPanel>
+        <TextBlock DockPanel.Dock="Bottom" x:Name="Status" Classes="hint" Margin="0,8,0,0" />
+        <Panel>
+            <!-- hidden with IsVisible (not removed): the web view keeps its page -->
+            <Border x:Name="ConsoleHost" CornerRadius="4" ClipToBounds="True" Background="{DynamicResource SolidBackgroundFillColorQuarternaryBrush}">
+                <c:LogConsoleView x:Name="LogConsole" />
+            </Border>
+            <TextBox x:Name="Lines" IsVisible="False" IsReadOnly="True" Classes="mono" TextWrapping="NoWrap"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     VerticalContentAlignment="Top" AcceptsReturn="True" />
+        </Panel>
+    </DockPanel>
+</Window>

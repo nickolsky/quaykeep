@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.AddressChangeWindow"
+        Title="{l:Tr Addr.Title}" Width="820" Height="600" MinWidth="560" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="20,14,20,18" RowDefinitions="Auto,Auto,*,120,Auto">
+        <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="1" Classes="hint" Text="{l:Tr Addr.Hint}" Margin="0,6,0,10" />
+        <ListBox x:Name="ItemsList" Grid.Row="2">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox IsChecked="{Binding Checked}" Content="{Binding Label}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBox x:Name="Log" Grid.Row="3" Margin="0,12,0,0" IsReadOnly="True" TextWrapping="Wrap" Classes="mono"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" />
+        <DockPanel Grid.Row="4" Margin="0,14,0,0">
+            <ProgressBar x:Name="Busy" DockPanel.Dock="Left" IsIndeterminate="True" Width="120" Height="4" MinWidth="0" Opacity="0" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="RunButton" Content="{l:Tr Addr.Run}" Click="OnRun" Classes="accent" MinWidth="160" />
+                <Button x:Name="CloseButton" Content="{l:Tr Addr.Skip}" IsCancel="True" Click="OnClose" Classes="dialog" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

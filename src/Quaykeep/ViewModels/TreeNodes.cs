@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Windows;
+using Avalonia;
+using FluentIcons.Common;
 using Quaykeep.Core.Firewall;
 using Quaykeep.Core.Forwarding;
 using Quaykeep.Core.Models;
@@ -40,8 +41,8 @@ public abstract class TreeNode(int level) : ObservableObject
     }
 
     public abstract string Title { get; }
-    /// <summary>Segoe Fluent Icons glyph.</summary>
-    public virtual string Icon => "";
+    /// <summary>Fluent UI icon; null = none.</summary>
+    public virtual Symbol? Icon => null;
     /// <summary>Status dot: ok, bad, warn, off, busy or empty (no dot).</summary>
     public virtual string Dot => "";
     public virtual string? Tip => null;
@@ -102,7 +103,7 @@ public sealed class GroupNode(int level, string path, string name, Action<GroupN
 
     public override string Title => Name;
     public override string Badge => ServerCount.ToString();
-    public override string Icon => IsExpanded ? "" : ""; // FolderOpen / Folder
+    public override Symbol? Icon => IsExpanded ? Symbol.FolderOpen : Symbol.Folder; // FolderOpen / Folder
     public override bool IsBold => true;
     public override string Address => OfflineCount > 0 ? L.F("Tree.GroupOffline", OfflineCount) : "";
     public override string Dot => OfflineCount > 0 ? "bad" : WarnCount > 0 ? "warn" : "";
@@ -139,7 +140,7 @@ public sealed class ServerNode : TreeNode
 
     public override bool CanExpand => true;
     public override string Title => Entry.Name;
-    public override string Icon => ""; // server-ish (PC)
+    public override Symbol? Icon => Symbol.Server; // server-ish (PC)
     public override string Address => Entry.Display;
     public override string Notes => Entry.Notes?.ReplaceLineEndings(" ") ?? "";
 
@@ -385,20 +386,20 @@ public sealed class ServerNode : TreeNode
 
         if (f.DockerAvailable)
         {
-            var docker = Section("docker", L.F("Tree.Docker", f.Containers.Count(c => c.IsRunning), f.Containers.Count), "");
+            var docker = Section("docker", L.F("Tree.Docker", f.Containers.Count(c => c.IsRunning), f.Containers.Count), Symbol.Box);
             foreach (var c in f.Containers) docker.Children.Add(new ContainerNode(level + 1, c, docker));
             if (f.Containers.Count == 0) docker.Children.Add(new InfoNode(level + 1, L.Get("Tree.NoContainers"), docker));
         }
 
         if (f.Services.Count > 0)
         {
-            var services = Section("services", L.F("Tree.Services", f.Services.Count(s => s.IsRunning), f.Services.Count), "");
+            var services = Section("services", L.F("Tree.Services", f.Services.Count(s => s.IsRunning), f.Services.Count), Symbol.Settings);
             foreach (var s in f.Services) services.Children.Add(new ServiceNode(level + 1, s, services));
         }
 
         if (f.CronJobs.Count > 0)
         {
-            var cron = Section("cron", L.F("Tree.Cron", f.CronJobs.Count), "");
+            var cron = Section("cron", L.F("Tree.Cron", f.CronJobs.Count), Symbol.Clock);
             foreach (var j in f.CronJobs.OrderBy(j => j.Kind).ThenBy(j => j.User, StringComparer.Ordinal))
                 cron.Children.Add(new CronNode(level + 1, j, cron));
         }
@@ -406,7 +407,7 @@ public sealed class ServerNode : TreeNode
         var incoming = _vm.IncomingForwards(Entry).ToList();
         if (f.Forwards.Count > 0 || incoming.Count > 0)
         {
-            var fw = Section("forwards", L.F("Tree.ForwardsSection", f.Forwards.Count + incoming.Count), "");
+            var fw = Section("forwards", L.F("Tree.ForwardsSection", f.Forwards.Count + incoming.Count), Symbol.ArrowsBidirectional);
             foreach (var p in f.Forwards)
                 fw.Children.Add(new ForwardNode(level + 1, _vm.DescribeForward(Entry, p), p, fw)
                 {
@@ -431,7 +432,7 @@ public sealed class ServerNode : TreeNode
         if (rules.Count == 0 && presets.Count == 0 && f.Firewall?.Installed != true) return;
         var effective = FirewallSets.Effective(Entry.Firewall, presets);
         var status = FirewallRules.Status(effective, f.Firewall);
-        var section = Section("firewall", L.F("Tree.FirewallSection", effective.Rules.Count(r => r.Enabled)), "");
+        var section = Section("firewall", L.F("Tree.FirewallSection", effective.Rules.Count(r => r.Enabled)), Symbol.Shield);
         section.Children.Add(new FirewallRuleNode(Level + 2, FirewallRules.StatusText(status), null, section) { Muted = status != FirewallStatus.Applied });
         foreach (var r in rules)
             section.Children.Add(new FirewallRuleNode(Level + 2, FirewallRules.Describe(r), r, section)
@@ -447,7 +448,7 @@ public sealed class ServerNode : TreeNode
     private void AddAttributes()
     {
         if (Entry.Attributes.Count == 0) return;
-        var section = Section("attrs", L.F("Tree.AttributesSection", Entry.Attributes.Count), "");
+        var section = Section("attrs", L.F("Tree.AttributesSection", Entry.Attributes.Count), Symbol.Tag);
         foreach (var a in Entry.Attributes) section.Children.Add(new AttributeNode(Level + 2, a, section));
     }
 
@@ -458,13 +459,13 @@ public sealed class ServerNode : TreeNode
         var monitored = Entry.MonitoredPorts.DistinctBy(p => p.Port).ToDictionary(p => p.Port);
         var all = listening.Keys.Union(monitored.Keys).Order().ToList();
         if (all.Count == 0) return;
-        var section = Section("ports", L.F("Tree.PortsSection", monitored.Count, all.Count), "\uE839");
+        var section = Section("ports", L.F("Tree.PortsSection", monitored.Count, all.Count), Symbol.PlugConnected);
         foreach (var port in all.OrderBy(p => monitored.ContainsKey(p) ? 0 : 1).ThenBy(p => p))
             section.Children.Add(new PortNode(Level + 2, this, port, monitored.GetValueOrDefault(port),
                 listening.GetValueOrDefault(port), section));
     }
 
-    private SectionNode Section(string key, string title, string icon)
+    private SectionNode Section(string key, string title, Symbol icon)
     {
         var s = new SectionNode(Level + 1, key, title, icon, this);
         s.IsExpanded = _sectionState.TryGetValue(key, out var e) ? e : key is not ("services" or "cron" or "firewall");
@@ -476,9 +477,9 @@ public sealed class ServerNode : TreeNode
 public sealed class SectionNode : TreeNode
 {
     private readonly string _title;
-    private readonly string _icon;
+    private readonly Symbol _icon;
 
-    public SectionNode(int level, string key, string title, string icon, TreeNode parent) : base(level)
+    public SectionNode(int level, string key, string title, Symbol icon, TreeNode parent) : base(level)
     {
         Key = key;
         _title = title;
@@ -488,7 +489,7 @@ public sealed class SectionNode : TreeNode
 
     public string Key { get; }
     public override string Title => _title;
-    public override string Icon => _icon;
+    public override Symbol? Icon => _icon;
     public override bool IsBold => true;
 }
 
@@ -527,7 +528,7 @@ public sealed class ContainerNode : TreeNode
             return string.Join("\n", lines);
         }
     }
-    public override string Icon => "";
+    public override Symbol? Icon => Symbol.Box;
     public override string Dot => Info.IsRunning ? "ok" : Info.State is "restarting" ? "warn" : "off";
     public override bool IsMuted => !Info.IsRunning;
     public override string Address => Info.Image;
@@ -557,7 +558,7 @@ public sealed class ServiceNode : TreeNode
 
     public ServiceInfo Info { get; }
     public override string Title => Info.Title;
-    public override string Icon => "";
+    public override Symbol? Icon => Symbol.Settings;
     public override string Dot => Info.Active switch { "active" => "ok", "failed" => "bad", "activating" or "reloading" => "warn", _ => "off" };
     public override bool IsMuted => !Info.IsRunning;
     public override string Address => Info.Unit;
@@ -578,7 +579,7 @@ public sealed class CronNode : TreeNode
     public CronJob Job { get; }
 
     public override string Title => Job.Kind == CronKind.Timer ? Job.Source : Shorten(Job.Command, 90);
-    public override string Icon => Job.Kind == CronKind.Timer ? "" : ""; // stopwatch / clock
+    public override Symbol? Icon => Job.Kind == CronKind.Timer ? Symbol.Timer : Symbol.Clock; // stopwatch / clock
     public override string Dot => Job.Active ? "ok" : "off";
     public override bool IsMuted => !Job.Active;
     public override string Address => Job.Kind == CronKind.Timer ? Job.Command : Job.Schedule;
@@ -623,7 +624,7 @@ public sealed class ForwardNode : TreeNode
     public string? Chain { get; init; }
     public override string Title => _text;
     public override string? Tip => Chain is { } c && c.Contains('\n') ? c : _text;
-    public override string Icon => Forward == null ? "" : ""; // back / forward arrows
+    public override Symbol? Icon => Forward == null ? Symbol.ArrowLeft : Symbol.ArrowRight; // back / forward arrows
     public override string Address => Forward == null ? "" : Forward.Managed ? "Quaykeep" : L.Get("Fwd.External");
     public override bool IsMuted => Forward == null;
 }
@@ -646,7 +647,7 @@ public sealed class FirewallRuleNode : TreeNode
     public override string Title => _text;
     public override string? Tip => Rule == null ? _text
         : string.Join("\n", Rule.Sources) + (string.IsNullOrWhiteSpace(Rule.Comment) ? "" : "\n\n" + Rule.Comment);
-    public override string Icon => Rule == null ? "" : Rule.Action == FirewallAction.Block ? "" : "";
+    public override Symbol? Icon => Rule == null ? null : Rule.Action == FirewallAction.Block ? Symbol.Prohibited : Symbol.Checkmark;
     public override string Address => Rule?.Comment ?? State;
     public override bool IsMuted => Muted;
 }
@@ -661,7 +662,7 @@ public sealed class AttributeNode : TreeNode
 
     public ServerAttribute Attribute { get; }
     public override string Title => Attribute.Label;
-    public override string Icon => ""; // copy
+    public override Symbol? Icon => Symbol.Copy; // copy
     public override string Address => Attribute.Value.ReplaceLineEndings(" ");
     public override string? Tip => Attribute.Value + "\n\n" +
                                    L.F("Attr.Tip", Attribute.Source ?? "—", Attribute.Updated.ToString("g", L.Culture));
@@ -689,7 +690,7 @@ public sealed class PortNode : TreeNode
     public override string Title => Monitored?.Name is { Length: > 0 } n ? $"{Port}  {n}"
         : Listening?.Process is { Length: > 0 } p ? $"{Port}  {p}" : Port.ToString();
 
-    public override string Icon => "\uE839";
+    public override Symbol? Icon => Symbol.PlugConnected;
     public override string Dot => Monitored == null ? "" : _server.PortDot(Port);
     public override string? Tip => Monitored == null ? null : _server.PortTip(Port);
     public override bool IsMuted => Monitored == null;

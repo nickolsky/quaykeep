@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
+using FluentIcons.Common;
 using Quaykeep.Core.Files;
 using Quaykeep.Mvvm;
 
@@ -22,7 +23,7 @@ public sealed class FileRow(FileItem item, bool isParent = false) : ObservableOb
     public bool IsParent { get; } = isParent;
     public bool IsDirectory => IsParent || Item.IsDirectory;
     public string Name => IsParent ? ".." : Item.Name;
-    public string Icon => IsParent ? "" : Item.IsLink ? (Item.IsDirectory ? "" : "") : Item.IsDirectory ? "" : "";
+    public Symbol Icon => IsParent ? Symbol.ArrowLeft : Item.IsLink ? (Item.IsDirectory ? Symbol.FolderLink : Symbol.Link) : Item.IsDirectory ? Symbol.Folder : Symbol.Document;
     public string SizeText => IsDirectory ? (IsParent ? "" : Item.Path.Length <= 3 && Item.Size > 0 ? L.F("Files.Free", FormatSize(Item.Size)) : "") : FormatSize(Item.Size);
     public string ModifiedText => IsParent ? "" : Item.Modified?.ToString("yyyy-MM-dd HH:mm") ?? "";
     public string Permissions => IsParent ? "" : Item.Permissions ?? "";
@@ -68,7 +69,7 @@ public sealed class FilePanelModel : ObservableObject
 
     public string Title { get; }
     public bool IsRemote { get; }
-    public string Icon => IsRemote ? "" : "";
+    public Symbol Icon => IsRemote ? Symbol.Globe : Symbol.Laptop;
     public ObservableCollection<FileRow> Rows { get; } = [];
     public IFileSystem? Fs => _fs;
 

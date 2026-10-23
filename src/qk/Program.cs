@@ -13,9 +13,16 @@ namespace Quaykeep.Cli;
 ///   qk &lt;server&gt;      — connect by server name from any terminal
 ///   qk list          — list saved servers
 /// It is also SSH_ASKPASS for password sessions (ssh calls it with the prompt as the only argument).
+/// Inside an AppImage the main program runs it (<see cref="RunAsync"/>): "Quaykeep.AppImage qk …".
 /// </summary>
-internal static partial class Program
+public static partial class Program
 {
+    /// <summary>The helper run by the main program: its arguments after "qk", or ssh's prompt when asked as SSH_ASKPASS.</summary>
+    public static Task<int> RunAsync(string[] args) => Main(args);
+
+    /// <summary>ssh asks for a password: SSH_ASKPASS ran this program with the token in the environment.</summary>
+    public static bool IsAskPass => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SSHM_ASKPASS_TOKEN"));
+
     private static async Task<int> Main(string[] args)
     {
         try
@@ -200,10 +207,11 @@ internal static partial class Program
         {
             return await ControlClient.SendAsync(req);
         }
-        catch (TimeoutException) when (startApp && File.Exists(AppPaths.MainExe))
+        catch (TimeoutException) when (startApp && File.Exists(AppPaths.Launcher))
         {
             Console.Error.WriteLine("qk: " + L.Get("Cli.Starting"));
-            Process.Start(new ProcessStartInfo(AppPaths.MainExe, "--tray") { UseShellExecute = true })?.Dispose();
+            // Windows: shell-execute so the app does not inherit this console; elsewhere that would open the file with xdg-open
+            Process.Start(new ProcessStartInfo(AppPaths.Launcher, "--tray") { UseShellExecute = OperatingSystem.IsWindows() })?.Dispose();
             for (int i = 0; i < 15; i++)
             {
                 try
@@ -228,8 +236,9 @@ internal static partial class Program
     {
         if (prompt.Contains("(yes/no", StringComparison.OrdinalIgnoreCase))
         {
-            var yes = MessageBoxW(IntPtr.Zero, prompt, L.Get("Cli.NewHostTitle"),
-                0x4 /*YESNO*/ | 0x30 /*WARNING*/ | 0x40000 /*TOPMOST*/) == 6;
+            var yes = OperatingSystem.IsWindows()
+                ? MessageBoxW(IntPtr.Zero, prompt, L.Get("Cli.NewHostTitle"), 0x4 /*YESNO*/ | 0x30 /*WARNING*/ | 0x40000 /*TOPMOST*/) == 6
+                : ReadConsoleLine(prompt + " ")?.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase) == true;
             return Answer(yes ? "yes" : "no");
         }
 
@@ -262,11 +271,15 @@ internal static partial class Program
         return 0;
     }
 
+    /// <summary>The terminal itself: ssh captures the askpass program's stdout as the answer.</summary>
+    private static string ConsoleOut => OperatingSystem.IsWindows() ? "CONOUT$" : "/dev/tty";
+    private static string ConsoleIn => OperatingSystem.IsWindows() ? "CONIN$" : "/dev/tty";
+
     private static void WriteConsole(string text)
     {
         try
         {
-            using var con = new FileStream("CONOUT$", FileMode.Open, FileAccess.Write);
+            using var con = new FileStream(ConsoleOut, FileMode.Open, FileAccess.Write);
             var b = Encoding.UTF8.GetBytes(text);
             con.Write(b);
         }
@@ -280,7 +293,7 @@ internal static partial class Program
         try
         {
             WriteConsole(prompt);
-            using var con = new FileStream("CONIN$", FileMode.Open, FileAccess.Read);
+            using var con = new FileStream(ConsoleIn, FileMode.Open, FileAccess.Read);
             using var reader = new StreamReader(con, Console.InputEncoding);
             return reader.ReadLine();
         }

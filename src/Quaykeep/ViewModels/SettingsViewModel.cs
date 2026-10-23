@@ -1,13 +1,12 @@
 using System.Collections.ObjectModel;
-using System.Windows;
 using System.Windows.Input;
-using Microsoft.Win32;
 using Quaykeep.Core;
 using Quaykeep.Core.Models;
 using Quaykeep.Core.Scripts;
 using Quaykeep.Core.Ssh;
 using Quaykeep.Mvvm;
 using Quaykeep.Services;
+using Quaykeep.Views;
 
 namespace Quaykeep.ViewModels;
 
@@ -68,7 +67,7 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
 
     // ---------- interface ----------
 
-    /// <summary>0 = Windows language, 1 = Russian, 2 = English.</summary>
+    /// <summary>0 = the system's language, 1 = Russian, 2 = English.</summary>
     public int LanguageIndex
     {
         get => S.Language switch { L.Russian => 1, L.English => 2, _ => 0 };
@@ -126,17 +125,43 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
         }
     }
 
+    public static bool IsWindows => OperatingSystem.IsWindows();
+
+    /// <summary>
+    /// The terminal choices: Windows has Windows Terminal (tab, window), a console window and the built-in terminal;
+    /// macOS and Linux have the system terminal (<see cref="TerminalMode.ConsoleWindow"/>) and the built-in one.
+    /// </summary>
+    private static readonly TerminalMode[] Modes = OperatingSystem.IsWindows()
+        ? [TerminalMode.WindowsTerminalTab, TerminalMode.WindowsTerminalWindow, TerminalMode.ConsoleWindow, TerminalMode.BuiltIn]
+        : [TerminalMode.ConsoleWindow, TerminalMode.BuiltIn];
+
+    public IReadOnlyList<string> TerminalOptions => Modes.Select(m => m switch
+    {
+        TerminalMode.WindowsTerminalTab => L.Get("Settings.WtTab"),
+        TerminalMode.WindowsTerminalWindow => L.Get("Settings.WtWindow"),
+        TerminalMode.BuiltIn => L.Get("Settings.BuiltIn"),
+        _ when IsWindows => L.Get("Settings.Console"),
+        _ => SessionLauncher.ExternalTerminalName is { Length: > 0 } name
+            ? L.F("Settings.SystemTerminal", name)
+            : L.Get("Settings.SystemTerminalMissing"),
+    }).ToList();
+
     public int TerminalIndex
     {
-        get => (int)S.Terminal;
+        // a Windows Terminal mode in settings copied from Windows means the system terminal elsewhere
+        get => Math.Max(0, Array.IndexOf(Modes, IsWindows ? S.Terminal : S.Terminal == TerminalMode.BuiltIn ? TerminalMode.BuiltIn : TerminalMode.ConsoleWindow));
         set
         {
-            S.Terminal = (TerminalMode)value;
+            if (value < 0 || value >= Modes.Length) return;
+            S.Terminal = Modes[value];
             Save();
         }
     }
 
     // ---------- global shortcut ----------
+
+    /// <summary>The global shortcut works only on Windows: elsewhere the setting is shown but disabled.</summary>
+    public static bool HotkeySupported => GlobalHotkey.IsSupported;
 
     public string HotkeyText
     {
@@ -152,7 +177,8 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
     }
 
     public string HotkeyStatus =>
-        string.IsNullOrEmpty(S.GlobalHotkey) ? L.Get("Hotkey.Off")
+        !GlobalHotkey.IsSupported ? L.Get("Hotkey.WindowsOnly")
+        : string.IsNullOrEmpty(S.GlobalHotkey) ? L.Get("Hotkey.Off")
         : _host.ActiveHotkey != null ? L.Get("Hotkey.Works")
         : L.Get("Hotkey.Taken");
 
@@ -268,15 +294,15 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
     private void OnMcpChanged()
     {
         foreach (var p in new[] { nameof(McpHttpCommand), nameof(McpHttpStatus), nameof(McpServersText), nameof(McpHttpPort) }) OnPropertyChanged(p);
-        CommandManager.InvalidateRequerySuggested();
+        RelayCommand.InvalidateAll();
     }
 
     // ---------- updates ----------
 
     public string VersionText => L.F("Update.Version", _host.Updates.Current.ToString(3)) + (AppPaths.IsSideBySide ? " [" + AppPaths.Instance + "]" : "");
     public string UpdateStatus => _host.Updates.Status;
-    public bool UpdateAvailable => _host.Updates.Available != null && _host.Updates.CanInstall;
-    public string UpdateAvailableText => _host.Updates.Available is { } r ? L.F("Update.Available", r.Version.ToString(3)) : "";
+    public bool UpdateAvailable => _host.Updates.AvailableVersion != null && _host.Updates.CanInstall;
+    public string UpdateAvailableText => _host.Updates.AvailableVersion is { } v ? L.F("Update.Available", v) : "";
     public double UpdateProgress => _host.Updates.Progress * 100;
     public bool UpdateBusy => _host.Updates.Busy;
 
@@ -294,13 +320,13 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
     {
         foreach (var p in new[] { nameof(UpdateStatus), nameof(UpdateAvailable), nameof(UpdateAvailableText), nameof(UpdateProgress), nameof(UpdateBusy) })
             OnPropertyChanged(p);
-        CommandManager.InvalidateRequerySuggested();
+        RelayCommand.InvalidateAll();
     }
 
     private async void InstallUpdate()
     {
-        if (_host.Updates.Available is not { } r) return;
-        if (MessageBox.Show(Application.Current.MainWindow, L.F("Update.Confirm", r.Version.ToString(3)), L.Get("Update.Title"),
+        if (_host.Updates.AvailableVersion is not { } version) return;
+        if (MessageBox.Show(_main.Owner, L.F("Update.Confirm", version), L.Get("Update.Title"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) != MessageBoxResult.Yes)
             return;
         await _host.Updates.InstallAsync();
@@ -358,11 +384,12 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
     }
 
     public string EffectiveSshPath => L.Get("Settings.SshUsed") + " " + _host.Launcher.SshPath;
-    public string TerminalInfo => SessionLauncher.FindWindowsTerminal() is { } wt
-        ? L.Get("Settings.WtFound") + " " + wt
+    public string TerminalInfo =>
+        !IsWindows ? (SessionLauncher.ExternalTerminalName.Length > 0 ? "" : L.Get("Settings.SystemTerminalMissing"))
+        : SessionLauncher.FindWindowsTerminal() is { } wt ? L.Get("Settings.WtFound") + " " + wt
         : L.Get("Settings.WtMissing");
     public string DataDir => AppPaths.DataDir;
-    public string HelperInfo => L.F("Settings.HelperInfo", AppPaths.HelperExe);
+    public string HelperInfo => L.F("Settings.HelperInfo", AppPaths.HelperCommand);
 
     // ---------- monitoring ----------
 
@@ -532,7 +559,7 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
             _selectedScript = value;
             OnPropertyChanged();
             LoadEditor();
-            CommandManager.InvalidateRequerySuggested();
+            RelayCommand.InvalidateAll();
         }
     }
 
@@ -682,7 +709,7 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
         if (!Set(ref field, value, name) || _loadingScript) return;
         _dirty = true;
         OnPropertyChanged(nameof(ScriptDirty));
-        CommandManager.InvalidateRequerySuggested();
+        RelayCommand.InvalidateAll();
     }
 
     private void LoadEditor()

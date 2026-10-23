@@ -5,6 +5,10 @@
   'use strict';
   const host = window.chrome && window.chrome.webview;
   const send = (msg) => host && host.postMessage(msg);
+  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent;
+  const WIN = /win/i.test(platform);
+  const MAC = /mac/i.test(platform);
+  if (WIN) document.body.classList.add('win');
 
   const DARK = {
     background: '#1f1f1f', foreground: '#e6e6e6', cursor: '#1f1f1f', cursorAccent: '#1f1f1f',
@@ -28,7 +32,7 @@
     cursorInactiveStyle: 'none',
     scrollback: 50000,
     convertEol: true,
-    fontFamily: '"Cascadia Mono", "Cascadia Code", Consolas, monospace',
+    fontFamily: '"Cascadia Mono", "Cascadia Code", Consolas, Menlo, "SF Mono", "DejaVu Sans Mono", "Liberation Mono", monospace',
     fontSize: 13,
     theme: DARK,
   });
@@ -53,7 +57,8 @@
 
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== 'keydown') return true;
-    const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
+    // macOS: Cmd does what Ctrl does elsewhere
+    const ctrl = MAC ? e.metaKey && !e.ctrlKey && !e.altKey : e.ctrlKey && !e.altKey && !e.metaKey;
     const k = e.key.toLowerCase();
     if (ctrl && (k === 'c' || k === 'insert')) { copySelection(); e.preventDefault(); return false; }
     if (ctrl && k === 'a') { term.selectAll(); e.preventDefault(); return false; }
@@ -72,7 +77,7 @@
     refit();
   };
   document.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return;
+    if (!e.ctrlKey && !(MAC && e.metaKey)) return;
     e.preventDefault();
     zoom(e.deltaY < 0 ? 1 : -1);
   }, { passive: false });
@@ -85,8 +90,8 @@
   document.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const items = [
-      { id: 'copy', ic: '', k: 'Ctrl+C', off: !term.hasSelection(), run: () => { copySelection(); term.clearSelection(); } },
-      { id: 'selectAll', ic: '', k: 'Ctrl+A', run: () => term.selectAll() },
+      { id: 'copy', ic: WIN ? '' : '⧉', k: MAC ? '⌘C' : 'Ctrl+C', off: !term.hasSelection(), run: () => { copySelection(); term.clearSelection(); } },
+      { id: 'selectAll', ic: WIN ? '' : '⬚', k: MAC ? '⌘A' : 'Ctrl+A', run: () => term.selectAll() },
     ];
     menuEl.innerHTML = items.map((it, i) =>
       '<div class="mi' + (it.off ? ' off' : '') + '" data-i="' + i + '"><span class="ic">' + it.ic + '</span><span>' +

@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Threading;
-using Microsoft.Win32;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using Quaykeep.Core;
 using Quaykeep.Core.Agent;
 using Quaykeep.Core.Backup;
@@ -16,29 +16,30 @@ using Quaykeep.Core.Pipes;
 using Quaykeep.Core.Scripts;
 using Quaykeep.Core.Ssh;
 using Quaykeep.Core.Storage;
+using Quaykeep.Services.Platform;
 using Quaykeep.Views;
 
 namespace Quaykeep.Services;
 
 /// <summary>Owns all long-lived services and the app lifecycle (tray, lock/unlock, IPC).</summary>
-public sealed partial class AppHost : IDisposable
+public sealed class AppHost : IDisposable
 {
     private static readonly TimeSpan AgentPromptCooldown = TimeSpan.FromSeconds(30);
     /// <summary>Time for the user to accept the host key in the terminal before we log in in the background.</summary>
     private static readonly TimeSpan FirstInventoryDelay = TimeSpan.FromSeconds(45);
 
-    private readonly Dispatcher _ui;
+    private readonly Dispatcher _ui = Dispatcher.UIThread;
     private readonly DispatcherTimer _idleTimer;
     private readonly DispatcherTimer _backupTimer;
+    private readonly SessionLockMonitor _sessionLock = new();
     private TrayIcon? _tray;
     private GlobalHotkey? _hotkey;
     private MainWindow? _main;
     private Task<bool>? _unlockTask;
     private DateTime _lastUnlockCancel = DateTime.MinValue;
 
-    public AppHost(Dispatcher ui)
+    public AppHost()
     {
-        _ui = ui;
         SettingsStore.Load();
         L.Language = SettingsStore.Settings.Language;
         Agent = new SshAgentServer(Vault) { UnlockRequested = () => EnsureUnlockedAsync(fromAgent: true) };
@@ -58,19 +59,19 @@ public sealed partial class AppHost : IDisposable
         Control = new ControlServer(HandleControlAsync);
         Mcp = new McpService(this, _ui);
 
-        Health.WentDown += (_, t) => _ui.BeginInvoke(() => OnServerDown(t));
-        Health.PortWentDown += (_, t) => _ui.BeginInvoke(() => OnPortDown(t));
+        Health.WentDown += (_, t) => _ui.Post(() => OnServerDown(t));
+        Health.PortWentDown += (_, t) => _ui.Post(() => OnPortDown(t));
         Health.ServerOnline += (_, s) =>
         {
             if (SettingsStore.Settings.CollectMetrics && KnownHosts.IsKnown(s.Host, s.Port)) _ = Metrics.CollectAsync(s);
         };
 
-        Vault.LockStateChanged += (_, _) => _ui.BeginInvoke(OnLockStateChanged);
+        Vault.LockStateChanged += (_, _) => _ui.Post(OnLockStateChanged);
         _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         _idleTimer.Tick += (_, _) => CheckIdle();
         _backupTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
         _backupTimer.Tick += (_, _) => RunAutoBackup();
-        SystemEvents.SessionSwitch += OnSessionSwitch;
+        _sessionLock.Locked += OnSessionLocked;
     }
 
     public SettingsService SettingsStore { get; } = new();
@@ -134,10 +135,10 @@ public sealed partial class AppHost : IDisposable
         try
         {
             var back = await ServerPower.WaitBackAsync(Ssh, server, bootId, TimeSpan.FromMinutes(10));
-            _ui.Invoke(() =>
+            _ui.Post(() =>
             {
                 if (back is { } t) Notify(L.Get("Reboot.Title"), L.F("Reboot.Back", server.Name, (int)t.TotalSeconds));
-                else _tray?.Balloon(L.Get("Reboot.Title"), L.F("Reboot.NotBack", server.Name), System.Windows.Forms.ToolTipIcon.Warning);
+                else _tray?.Balloon(L.Get("Reboot.Title"), L.F("Reboot.NotBack", server.Name), warning: true);
             });
         }
         finally
@@ -149,7 +150,7 @@ public sealed partial class AppHost : IDisposable
         }
     }
     public ControlServer Control { get; }
-    /// <summary>AI agents over MCP (stdio through qk.exe, HTTP on 127.0.0.1).</summary>
+    /// <summary>AI agents over MCP (stdio through qk, HTTP on 127.0.0.1).</summary>
     public McpService Mcp { get; }
 
     public event EventHandler? StateChanged;
@@ -163,6 +164,7 @@ public sealed partial class AppHost : IDisposable
         Updates.Start();
         _hotkey = new GlobalHotkey(ToggleMainWindow);
         ApplyHotkey();
+        _sessionLock.Start();
         _idleTimer.Start();
         _backupTimer.Start();
 
@@ -187,7 +189,7 @@ public sealed partial class AppHost : IDisposable
         ShowMainWindow();
     }
 
-    /// <summary>null = Windows language.</summary>
+    /// <summary>null = the system's language.</summary>
     public void SetLanguage(string? language)
     {
         SettingsStore.Settings.Language = language;
@@ -207,8 +209,6 @@ public sealed partial class AppHost : IDisposable
             if (!_main.IsVisible) _main.Show();
             if (_main.WindowState == WindowState.Minimized) _main.WindowState = WindowState.Normal;
             _main.Activate();
-            _main.Topmost = true;
-            _main.Topmost = false;
             _main.Focus();
         });
     }
@@ -259,7 +259,7 @@ public sealed partial class AppHost : IDisposable
             if (_unlockTask != null) return _unlockTask;
             var tcs = new TaskCompletionSource<bool>();
             _unlockTask = tcs.Task;
-            _ui.BeginInvoke(() =>
+            _ui.Post(() =>
             {
                 var ok = false;
                 try
@@ -273,7 +273,7 @@ public sealed partial class AppHost : IDisposable
                 }
             });
             return tcs.Task;
-        }).Task.Unwrap();
+        });
     }
 
     public void Lock()
@@ -354,7 +354,7 @@ public sealed partial class AppHost : IDisposable
 
     /// <summary>
     /// Opens a shell (or runs <paramref name="command"/>): in a tab of the main window with the built-in terminal,
-    /// otherwise in Windows Terminal / a console. Jump hosts and extra ssh arguments need ssh.exe, so they always go outside.
+    /// otherwise in the system's terminal. Jump hosts and extra ssh arguments need OpenSSH, so they always go outside.
     /// </summary>
     public void OpenSession(ServerEntry server, string? command = null, string? title = null)
     {
@@ -435,12 +435,8 @@ public sealed partial class AppHost : IDisposable
         var text = info.Status == HostKeyStatus.Mismatch
             ? L.F("HostKey.Changed", host, info.KeyType, info.Fingerprint)
             : L.F("HostKey.New", host, info.KeyType, info.Fingerprint);
-        var owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
         var icon = info.Status == HostKeyStatus.Mismatch ? MessageBoxImage.Warning : MessageBoxImage.Question;
-        var title = L.Get("HostKey.Title");
-        var result = owner != null
-            ? MessageBox.Show(owner, text, title, MessageBoxButton.YesNo, icon, MessageBoxResult.No)
-            : MessageBox.Show(text, title, MessageBoxButton.YesNo, icon, MessageBoxResult.No);
+        var result = MessageBox.Show(UiWait.ActiveWindow(), text, L.Get("HostKey.Title"), MessageBoxButton.YesNo, icon, MessageBoxResult.No);
         return result == MessageBoxResult.Yes;
     });
 
@@ -449,7 +445,7 @@ public sealed partial class AppHost : IDisposable
         if (IsRebooting(t.ServerId)) return; // expected; the reboot reports its own result
         if (!SettingsStore.Settings.NotifyOnServerDown || !Vault.TryRead(d => d.Servers.FirstOrDefault(s => s.Id == t.ServerId)?.Name, out var name) || name == null)
             return;
-        _tray?.Balloon(L.Get("Health.DownTitle"), L.F("Health.DownText", name, t.After.Error), System.Windows.Forms.ToolTipIcon.Warning);
+        _tray?.Balloon(L.Get("Health.DownTitle"), L.F("Health.DownText", name, t.After.Error), warning: true);
     }
 
     private void OnPortDown(PortTransition t)
@@ -457,7 +453,7 @@ public sealed partial class AppHost : IDisposable
         if (IsRebooting(t.ServerId)) return;
         if (!SettingsStore.Settings.NotifyOnServerDown || !Vault.TryRead(d => d.Servers.FirstOrDefault(s => s.Id == t.ServerId)?.Name, out var name) || name == null)
             return;
-        _tray?.Balloon(L.Get("Health.PortDownTitle"), L.F("Health.PortDownText", name, t.Port.Label, t.After.Error), System.Windows.Forms.ToolTipIcon.Warning);
+        _tray?.Balloon(L.Get("Health.PortDownTitle"), L.F("Health.PortDownText", name, t.Port.Label, t.After.Error), warning: true);
     }
 
     // ---------- backup ----------
@@ -472,7 +468,7 @@ public sealed partial class AppHost : IDisposable
         }
         catch (Exception ex)
         {
-            _tray?.Balloon(L.Get("Backup.Title"), L.Get("Backup.AutoFailed") + " " + ex.Message, System.Windows.Forms.ToolTipIcon.Warning);
+            _tray?.Balloon(L.Get("Backup.Title"), L.Get("Backup.AutoFailed") + " " + ex.Message, warning: true);
         }
     }
 
@@ -488,14 +484,14 @@ public sealed partial class AppHost : IDisposable
         SettingsStore.Load();
         L.Language = SettingsStore.Settings.Language;
         await Task.Run(() => Vault.Unlock(password));
-        _ = _ui.BeginInvoke(ShowMainWindow);
+        _ui.Post(ShowMainWindow);
         return snapshot;
     }
 
     public void Exit()
     {
         Dispose();
-        Application.Current.Shutdown();
+        (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
     }
 
     public void TryApplyAutostart(bool enabled)
@@ -507,18 +503,18 @@ public sealed partial class AppHost : IDisposable
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
         {
-            _tray?.Balloon(L.Get("Settings.Autostart.Title"), L.Get("Settings.Autostart.Failed") + " " + ex.Message, System.Windows.Forms.ToolTipIcon.Warning);
+            _tray?.Balloon(L.Get("Settings.Autostart.Title"), L.Get("Settings.Autostart.Failed") + " " + ex.Message, warning: true);
         }
     }
 
-    // ---------- IPC from qk.exe ----------
+    // ---------- IPC from qk ----------
 
     private async Task<ControlResponse> HandleControlAsync(ControlRequest req)
     {
         switch (req.Op)
         {
             case "activate":
-                _ = _ui.BeginInvoke(ShowMainWindow);
+                _ui.Post(ShowMainWindow);
                 return new ControlResponse { Ok = true };
 
             case "launch":
@@ -608,32 +604,18 @@ public sealed partial class AppHost : IDisposable
     {
         var minutes = SettingsStore.Settings.AutoLockMinutes;
         if (minutes <= 0 || !Vault.IsUnlocked) return;
-        var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
-        if (!GetLastInputInfo(ref info)) return;
-        var idleMs = (uint)Environment.TickCount - info.dwTime;
-        if (idleMs > minutes * 60_000u) Lock();
+        if (IdleTime.Get() > TimeSpan.FromMinutes(minutes)) Lock();
     }
 
-    private void OnSessionSwitch(object? sender, SessionSwitchEventArgs e)
+    /// <summary>The session locked (Win+L, the macOS lock screen, the desktop's screen locker): raised on a background thread.</summary>
+    private void OnSessionLocked()
     {
-        if (e.Reason == SessionSwitchReason.SessionLock && SettingsStore.Settings.LockOnWindowsLock)
-            _ui.BeginInvoke(Lock);
+        if (SettingsStore.Settings.LockOnWindowsLock) _ui.Post(Lock);
     }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct LASTINPUTINFO
-    {
-        public uint cbSize;
-        public uint dwTime;
-    }
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool GetLastInputInfo(ref LASTINPUTINFO info);
 
     public void Dispose()
     {
-        SystemEvents.SessionSwitch -= OnSessionSwitch;
+        _sessionLock.Dispose();
         _idleTimer.Stop();
         _backupTimer.Stop();
         Health.Dispose();

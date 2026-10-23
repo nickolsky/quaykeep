@@ -1,0 +1,77 @@
+<v:ToolWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.TraceWindow"
+        Width="1080" Height="720" MinWidth="720" MinHeight="460" ShowInTaskbar="True">
+    <Grid Margin="24,16,24,20" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+        <WrapPanel Grid.Row="1" Margin="0,10,0,10">
+            <RadioButton x:Name="FromPc" Content="{l:Tr Trace.FromPc}" GroupName="dir" IsChecked="True" Margin="0,0,20,0"
+                         VerticalAlignment="Center" IsCheckedChanged="OnModeChanged" />
+            <RadioButton x:Name="FromServer" GroupName="dir" VerticalAlignment="Center" IsCheckedChanged="OnModeChanged" Margin="0,0,8,0" />
+            <ComboBox x:Name="TargetBox" IsEditable="True" Width="260" VerticalAlignment="Center" IsEnabled="False" Margin="0,0,16,0"
+                      ToolTip.Tip="{l:Tr Trace.TargetTip}" DisplayMemberBinding="{Binding Label}" />
+            <Button x:Name="StartButton" Content="{l:Tr Trace.Start}" Click="OnStart" Classes="accent" MinWidth="110" VerticalAlignment="Center" />
+            <ProgressBar x:Name="Busy" IsIndeterminate="True" Width="100" MinWidth="0" Height="4" Margin="16,0,0,0" Opacity="0" VerticalAlignment="Center" />
+            <TextBlock x:Name="StateText" Classes="hint" VerticalAlignment="Center" Margin="12,0,0,0" />
+        </WrapPanel>
+
+        <DataGrid Grid.Row="2" x:Name="HopsGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                  HeadersVisibility="Column" GridLinesVisibility="None">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="40" />
+                <DataGridTextColumn Header="{l:Tr Trace.ColAddress}" Binding="{Binding Address}" Width="130" />
+                <DataGridTemplateColumn Header="{l:Tr Trace.ColName}" Width="200">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding HostName}" ToolTip.Tip="{Binding HostName}" Classes="cell" Margin="12,0" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="{l:Tr Trace.ColTime}" Binding="{Binding Times}" Width="130" />
+                <DataGridTemplateColumn Header="{l:Tr Trace.ColNetwork}" Width="220">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Network}" ToolTip.Tip="{Binding Network}" Classes="cell" Margin="12,0" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="{l:Tr Trace.ColLocation}" Binding="{Binding Location}" Width="160" />
+                <DataGridTemplateColumn Header="{l:Tr Trace.ColNote}" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Note}" ToolTip.Tip="{Binding Note}" Classes="cell" Margin="12,0"
+                                       Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3" Margin="0,12,0,0" Padding="14,10" CornerRadius="6" BorderThickness="1" MaxHeight="220"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="{l:Tr Trace.Reading}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <ItemsControl x:Name="NotesList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2,0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <DockPanel Grid.Row="4" Margin="0,14,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="{l:Tr ScriptRun.Copy}" Click="OnCopy" MinWidth="100" Margin="0,0,8,0" />
+                <Button Content="{l:Tr Common.Close}" IsCancel="True" MinWidth="100" Click="OnClose" />
+            </StackPanel>
+            <TextBlock x:Name="PrivacyText" Classes="hint" VerticalAlignment="Center" MaxWidth="560" HorizontalAlignment="Left" TextWrapping="Wrap" />
+        </DockPanel>
+    </Grid>
+</v:ToolWindow>

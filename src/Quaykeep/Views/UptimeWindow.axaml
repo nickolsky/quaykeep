@@ -1,0 +1,107 @@
+<v:ToolWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:c="using:Quaykeep.Views.Controls"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.UptimeWindow"
+        Title="{l:Tr Uptime.Title}" Width="900" Height="700" MinWidth="620" MinHeight="480">
+    <v:ToolWindow.Styles>
+        <Style Selector="Border.tile">
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        </Style>
+        <Style Selector="TextBlock.value">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </v:ToolWindow.Styles>
+    <Grid Margin="20,14,20,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" MinHeight="120" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="90" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="90" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel>
+            <ComboBox x:Name="Period" DockPanel.Dock="Right" Width="170" SelectionChanged="OnPeriodChanged">
+                <ComboBoxItem Content="{l:Tr Uptime.Period24h}" />
+                <ComboBoxItem Content="{l:Tr Uptime.Period7d}" />
+                <ComboBoxItem Content="{l:Tr Uptime.Period30d}" />
+                <ComboBoxItem Content="{l:Tr Uptime.Period90d}" />
+                <ComboBoxItem Content="{l:Tr Uptime.Period365d}" />
+            </ComboBox>
+            <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </DockPanel>
+
+        <!-- summary tiles -->
+        <UniformGrid Grid.Row="1" Rows="1" Margin="0,14,0,0" x:Name="Tiles">
+            <Border Classes="tile">
+                <StackPanel>
+                    <TextBlock Text="{l:Tr Uptime.TileUptime}" Classes="hint" />
+                    <TextBlock x:Name="UptimeValue" Classes="value" />
+                </StackPanel>
+            </Border>
+            <Border Classes="tile">
+                <StackPanel>
+                    <TextBlock Text="{l:Tr Uptime.TileOutages}" Classes="hint" />
+                    <TextBlock x:Name="OutagesValue" Classes="value" />
+                </StackPanel>
+            </Border>
+            <Border Classes="tile">
+                <StackPanel>
+                    <TextBlock Text="{l:Tr Uptime.TileDowntime}" Classes="hint" />
+                    <TextBlock x:Name="DowntimeValue" Classes="value" />
+                </StackPanel>
+            </Border>
+            <Border Classes="tile" Margin="0">
+                <StackPanel>
+                    <TextBlock Text="{l:Tr Uptime.TileLatency}" Classes="hint" />
+                    <TextBlock x:Name="LatencyValue" Classes="value" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <DockPanel Grid.Row="2" Margin="0,16,0,6">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Rectangle Width="10" Height="10" RadiusX="2" RadiusY="2" Fill="{DynamicResource SystemFillColorSuccessBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{l:Tr Uptime.LegendUp}" Classes="hint" Margin="5,0,14,0" VerticalAlignment="Center" />
+                <Rectangle Width="10" Height="10" RadiusX="2" RadiusY="2" Fill="{DynamicResource SystemFillColorCautionBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{l:Tr Uptime.LegendDegraded}" Classes="hint" Margin="5,0,14,0" VerticalAlignment="Center" />
+                <Rectangle Width="10" Height="10" RadiusX="2" RadiusY="2" Fill="{DynamicResource SystemFillColorCriticalBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{l:Tr Uptime.LegendDown}" Classes="hint" Margin="5,0,14,0" VerticalAlignment="Center" />
+                <Rectangle Width="10" Height="3" Fill="{DynamicResource ControlStrongFillColorDisabledBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{l:Tr Uptime.LegendNoData}" Classes="hint" Margin="5,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock Text="{l:Tr Uptime.Availability}" FontWeight="SemiBold" />
+        </DockPanel>
+        <c:UptimeChart Grid.Row="3" x:Name="AvailabilityChart" />
+
+        <TextBlock Grid.Row="4" Text="{l:Tr Uptime.Latency}" FontWeight="SemiBold" Margin="0,14,0,6" />
+        <c:UptimeChart Grid.Row="5" x:Name="LatencyChart" ShowLatency="True" />
+
+        <TextBlock Grid.Row="6" x:Name="OutagesHeader" FontWeight="SemiBold" Margin="0,14,0,6" />
+        <DataGrid Grid.Row="7" x:Name="OutagesGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                  HeadersVisibility="Column" GridLinesVisibility="None">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{l:Tr Uptime.OutageFrom}" Binding="{Binding From}" Width="170" />
+                <DataGridTextColumn Header="{l:Tr Uptime.OutageTo}" Binding="{Binding To}" Width="170" />
+                <DataGridTextColumn Header="{l:Tr Uptime.OutageDuration}" Binding="{Binding Duration}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DockPanel Grid.Row="8" Margin="0,14,0,0">
+            <Button DockPanel.Dock="Right" Content="{l:Tr Common.Close}" IsCancel="True" Click="OnClose" MinWidth="110" />
+            <TextBlock x:Name="Footer" Classes="hint" VerticalAlignment="Center" />
+        </DockPanel>
+    </Grid>
+</v:ToolWindow>

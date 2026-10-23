@@ -1,0 +1,28 @@
+<v:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.ContainerRemoveWindow"
+        Title="{l:Tr Container.RemoveTitle}" Width="540" SizeToContent="Height" CanResize="False">
+    <StackPanel Margin="24,16,24,20">
+        <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock x:Name="Info" Classes="hint" Margin="0,4,0,12" />
+
+        <StackPanel x:Name="ScopePanel" Margin="0,0,0,10">
+            <RadioButton x:Name="OnlyContainer" GroupName="scope" IsCheckedChanged="OnScopeChanged" />
+            <RadioButton x:Name="WholeProject" GroupName="scope" IsCheckedChanged="OnScopeChanged" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <CheckBox x:Name="Volumes" />
+        <CheckBox x:Name="Image" Content="{l:Tr Container.RemoveImage}" Margin="0,6,0,0" />
+        <CheckBox x:Name="Folder" Margin="0,6,0,0" />
+
+        <TextBlock Text="{l:Tr Container.RemoveWarning}" TextWrapping="Wrap" Margin="0,14,0,0"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="{l:Tr Container.RemoveButton}" Click="OnRemove" Classes="accent" MinWidth="120" HorizontalContentAlignment="Center" />
+            <Button Content="{l:Tr Common.Cancel}" IsCancel="True" IsDefault="True" Classes="dialog" />
+        </StackPanel>
+    </StackPanel>
+</v:DialogWindow>

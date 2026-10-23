@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quaykeep — менеджер SSH-серверов для Windows, macOS и Linux</title>
+<meta name="description" content="Quaykeep хранит SSH-серверы, пароли и ключи в зашифрованном хранилище: подключение в один клик, встроенный SSH-агент и терминал, файловый менеджер SFTP, мониторинг, файрвол, пробросы портов, скрипты установки и MCP-сервер для ИИ-агентов. Бесплатно, открытый код.">
+<link rel="icon" href="../icon.png">
+<link rel="stylesheet" href="../style.css?v=1">
+<link rel="alternate" hreflang="en" href="../">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="../icon.png" alt="">Quaykeep</a>
+    <nav>
+      <a class="hide-sm" href="#features">Возможности</a>
+      <a class="hide-sm" href="#agents">ИИ-агенты</a>
+      <a href="guide.html">Инструкция</a>
+      <a class="hide-sm" href="https://github.com/nickolsky/quaykeep">GitHub</a>
+      <a class="lang" href="../" hreflang="en">EN</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <img class="logo" src="../icon.png" alt="Значок Quaykeep">
+    <h1>Все ваши SSH-серверы —<br><span>на одной пристани</span></h1>
+    <p class="lead">Серверы, пароли и ключи в зашифрованном хранилище. Подключение в один клик, встроенные SSH-агент и терминал,
+      двухпанельный файловый менеджер SFTP, мониторинг, файрвол и пробросы портов — и безопасная помощь ИИ-агентов.</p>
+    <div class="badges">
+      <span class="badge"><b>●</b> Бесплатно, открытый код (MIT)</span>
+      <span class="badge">Windows · macOS · Linux</span>
+      <span class="badge">Данные остаются на вашем компьютере</span>
+    </div>
+
+    <div class="downloads" id="download">
+      <div class="dl" data-os="win">
+        <h3>Windows</h3>
+        <p class="meta">Windows 10 / 11, x64 · ставится для вашего пользователя, без прав администратора</p>
+        <a class="btn accent" data-asset="Quaykeep-win-x64-Setup.exe" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-win-x64-Setup.exe">Скачать установщик <span class="size"></span></a>
+        <span class="alt">или <a data-asset="Quaykeep-win-x64-Portable.zip" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-win-x64-Portable.zip">портативный zip <span class="size"></span></a></span>
+      </div>
+      <div class="dl" data-os="mac">
+        <h3>macOS</h3>
+        <p class="meta">macOS 14 и новее · установщик .pkg</p>
+        <a class="btn accent" data-asset="Quaykeep-osx-arm64.pkg" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-osx-arm64.pkg">Apple Silicon (M1–M4) <span class="size"></span></a>
+        <a class="btn" data-asset="Quaykeep-osx-x64.pkg" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-osx-x64.pkg">Mac с Intel <span class="size"></span></a>
+      </div>
+      <div class="dl" data-os="linux">
+        <h3>Linux</h3>
+        <p class="meta">AppImage x64 · Ubuntu 22.04+, Debian 12+, Fedora 41+ и другие</p>
+        <a class="btn accent" data-asset="Quaykeep-linux-x64.AppImage" href="https://github.com/nickolsky/quaykeep/releases/latest/download/Quaykeep-linux-x64.AppImage">Скачать AppImage <span class="size"></span></a>
+        <span class="alt">встроенному терминалу нужен WebKitGTK — <a href="guide.html#linux">подробнее</a></span>
+      </div>
+    </div>
+    <p class="release-line">Последняя версия <b data-version>—</b> <span data-date></span> ·
+      <a href="https://github.com/nickolsky/quaykeep/releases">все релизы</a> ·
+      <a href="guide.html#install">помощь с установкой</a> · обновляется сама</p>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>Всё для парка серверов — в одном окне</h2>
+      <p class="sub">Для тех, у кого десятки VPS: VPN-узлы, сайты, домашние серверы. Без аккаунта, без облака, без телеметрии.</p>
+      <div class="grid">
+        <div class="card"><div class="ico">🔐</div><h3>Зашифрованное хранилище</h3>
+          <p>Серверы, пароли и закрытые ключи в одном файле: AES-256-GCM, ключ из мастер-пароля через Argon2id. Автоблокировка при простое и при блокировке компьютера.</p></div>
+        <div class="card"><div class="ico">⚡</div><h3>Подключение в один клик</h3>
+          <p>Двойной щелчок по серверу — вкладка встроенного терминала, или Windows Terminal, Terminal.app, ваш терминал в Linux. Пароль передаётся через SSH_ASKPASS, а не в командной строке.</p></div>
+        <div class="card"><div class="ico">🗝️</div><h3>Встроенный SSH-агент</h3>
+          <p>Ваши ключи для ssh, git и VS Code Remote-SSH: стандартный канал OpenSSH в Windows или SSH_AUTH_SOCK в macOS и Linux. Один щелчок — и сервер переходит с пароля на ключ.</p></div>
+        <div class="card"><div class="ico">⌨️</div><h3>Умный терминал и редактор</h3>
+          <p>Вкладки xterm.js с подсказками из истории сервера, команд и файлов; <code>edit ФАЙЛ</code> открывает редактор CodeMirror, который при необходимости сохраняет через sudo.</p></div>
+        <div class="card"><div class="ico">📁</div><h3>Файловый менеджер SFTP</h3>
+          <p>Две панели в стиле Far: этот компьютер и сервер. Копирование, перенос, переименование, права, перетаскивание, очередь передач.</p></div>
+        <div class="card"><div class="ico">📈</div><h3>Мониторинг и аптайм</h3>
+          <p>Проверка SSH и портов, CPU / память / диск, графики доступности за сутки… год, уведомления, когда сервер или порт падает.</p></div>
+        <div class="card"><div class="ico">🛡️</div><h3>Файрвол и пробросы</h3>
+          <p>Блокировка или белый список адресов для портов и всего сервера, включая Docker, с автоматическим откатом, если SSH пропадёт. Пробросы портов iptables и карта сети со всеми маршрутами.</p></div>
+        <div class="card"><div class="ico">📦</div><h3>Скрипты установки</h3>
+          <p>VLESS REALITY, Hysteria 2, AmneziaWG, Nextcloud, Seafile, File Browser, SFTP / FTPS, статические сайты, Docker. Результаты (ссылки, пароли) сохраняются с сервером, с QR-кодами.</p></div>
+        <div class="card"><div class="ico">🌍</div><h3>Инвентаризация и сеть</h3>
+          <p>ОС, контейнеры, службы, cron и таймеры, слушающие порты; регион, хостер и whois; трассировка с разбором по узлам.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="agents">
+    <div class="wrap split">
+      <div>
+        <h2>ИИ-агенты — на коротком поводке</h2>
+        <p class="sub">Quaykeep работает как MCP-сервер для Claude Code, Codex и других агентов. Агент просит — Quaykeep выполняет команду с данными из хранилища. Пароли и ключи агент не видит.</p>
+        <ul class="checks">
+          <li>Доступ <b>по умолчанию выключен</b> и задаётся для каждого сервера: только чтение → перезагрузка → команды меню → полный.</li>
+          <li>Перезагрузка и удаление ждут вашего <b>«Разрешить / Запретить»</b>; системные папки удалить нельзя никогда.</li>
+          <li>Пароли и ссылки для входа из скриптов можно полностью скрыть от агентов.</li>
+          <li>Каждый вызов <b>записывается в журнал</b>, отказанные тоже; журнал виден вживую, как терминал.</li>
+        </ul>
+        <p><a href="guide.html#mcp">Подключить Claude Code или Codex →</a></p>
+      </div>
+<pre>claude mcp add --scope user quaykeep -- \
+  "/Applications/Quaykeep.app/Contents/MacOS/qk" mcp
+
+<span style="opacity:.6"># потом в Claude Code:</span>
+&gt; что с vpn-frankfurt? перезапусти xray, если завис</pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>Приватность по устройству</h2>
+        <p class="sub">Всё хранится в папке данных на вашем компьютере. Необязательные онлайн-запросы (GeoIP, whois) можно выключить; обновления приходят из релизов этого проекта на GitHub.</p>
+        <ul class="checks">
+          <li>Секреты никогда не попадают в командную строку, в файл на сервере или в журнал.</li>
+          <li>Изменения sshd и файрвола сначала проверяются и откатываются сами, если новый вход не удался.</li>
+          <li>Бэкапы всей папки данных в папку или на сервер по SFTP, по расписанию.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Одинаково в каждой ОС</h3>
+        <table>
+          <tr><th></th><th>Windows</th><th>macOS</th><th>Linux</th></tr>
+          <tr><td>Установка</td><td>Setup.exe / zip</td><td>.pkg</td><td>AppImage</td></tr>
+          <tr><td>SSH-агент</td><td>канал OpenSSH</td><td colspan="2">сокет SSH_AUTH_SOCK</td></tr>
+          <tr><td>Внешний терминал</td><td>Windows Terminal</td><td>Terminal.app</td><td>ваш терминал</td></tr>
+          <tr><td>Трей</td><td>область уведомлений</td><td>строка меню</td><td>трей / AppIndicator</td></tr>
+          <tr><td>Автообновление</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Quaykeep · лицензия MIT · для тех, у кого слишком много серверов</span>
+    <span><a href="guide.html">Инструкция</a> · <a href="https://github.com/nickolsky/quaykeep">Исходники</a> · <a href="https://github.com/nickolsky/quaykeep/issues">Вопросы</a> · <a href="../">In English</a></span>
+  </div>
+</footer>
+<script src="../app.js?v=1"></script>
+</body>
+</html>

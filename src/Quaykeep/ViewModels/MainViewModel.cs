@@ -2,9 +2,13 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
-using System.Windows;
 using System.Windows.Input;
-using Microsoft.Win32;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Threading;
 using Quaykeep.Core;
 using Quaykeep.Core.Backup;
 using Quaykeep.Core.Crypto;
@@ -135,9 +139,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ExitCommand = new RelayCommand(() =>
         {
             // quitting also stops the SSH agent and the AI agents' connection: easy to hit by mistake from the top bar
-            var answer = Owner != null
-                ? MessageBox.Show(Owner, L.Get("Main.ConfirmExit"), AppPaths.ProductTitle, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No)
-                : MessageBox.Show(L.Get("Main.ConfirmExit"), AppPaths.ProductTitle, MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+            var answer = MessageBox.Show(Owner, L.Get("Main.ConfirmExit"), AppPaths.ProductTitle, MessageBoxButton.YesNo,
+                MessageBoxImage.Question, MessageBoxResult.No);
             if (answer == MessageBoxResult.Yes) _host.Exit();
         });
         OpenScriptsSettingsCommand = new RelayCommand(() => SelectedTab = 2);
@@ -151,7 +154,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         LockCommand = new RelayCommand(() => _host.Lock());
         ChangePasswordCommand = new RelayCommand(() => new ChangePasswordWindow(_host.Vault) { Owner = Owner }.ShowDialog());
-        OpenDataFolderCommand = new RelayCommand(() => Process.Start(new ProcessStartInfo(AppPaths.DataDir) { UseShellExecute = true }));
+        OpenDataFolderCommand = new RelayCommand(() => UiExtensions.OpenWithShell(AppPaths.DataDir));
 
         Settings = new SettingsViewModel(host, this);
 
@@ -191,7 +194,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(IsRestartOnFailure));
             OnPropertyChanged(nameof(IsServiceAutostart));
             OnPropertyChanged(nameof(IsServiceNoAutostart));
-            CommandManager.InvalidateRequerySuggested();
+            RelayCommand.InvalidateAll();
         }
     }
 
@@ -250,7 +253,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         set
         {
             Set(ref _busy, value);
-            CommandManager.InvalidateRequerySuggested();
+            RelayCommand.InvalidateAll();
         }
     }
 
@@ -368,7 +371,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     // ---------- events from services (any thread) ----------
 
-    private void Ui(Action a) => Application.Current?.Dispatcher.BeginInvoke(a);
+    private static void Ui(Action a) => Dispatcher.UIThread.Post(a);
+
+    /// <summary>The app's open windows of a type (tool windows open once per server).</summary>
+    private static IEnumerable<T> OpenWindows<T>() where T : Window =>
+        (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Windows.OfType<T>() ?? [];
+
+    /// <summary>A tool window owned by the main window (stays above it, minimizes with it).</summary>
+    private void ShowOwned(Window window)
+    {
+        if (Owner is { IsVisible: true } owner) window.Show(owner);
+        else window.Show();
+    }
 
     private void OnDataChanged(object? s, EventArgs e) => Ui(Reload);
 
@@ -698,14 +712,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void OpenAgentLog()
     {
-        var existing = Application.Current.Windows.OfType<AgentLogWindow>().FirstOrDefault();
+        var existing = OpenWindows<AgentLogWindow>().FirstOrDefault();
         if (existing != null)
         {
             existing.Select(SelectedServer?.Entry.Id);
             existing.Activate();
             return;
         }
-        new AgentLogWindow(_host, SelectedServer?.Entry.Id) { Owner = Owner }.Show();
+        ShowOwned(new AgentLogWindow(_host, SelectedServer?.Entry.Id));
     }
 
     private void PrepareMonitorMenu()
@@ -939,26 +953,46 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static void SetClipboard(string text) => Clipboard.SetDataObject(new DataObject(DataFormats.UnicodeText, text), copy: true);
+    private static void SetClipboard(string text) => Clipboard.SetText(text);
 
     /// <summary>
-    /// A password: kept out of Windows clipboard history and the cloud clipboard, and cleared after 30 seconds
+    /// A password: marked so clipboard histories leave it out (Windows clipboard history and cloud clipboard, macOS
+    /// clipboard managers that honour org.nspasteboard.ConcealedType, KDE's Klipper), and cleared after 30 seconds
     /// if the clipboard still holds it.
     /// </summary>
     private async void CopySecret(string secret)
     {
-        var data = new DataObject(DataFormats.UnicodeText, secret);
-        data.SetData("ExcludeClipboardContentFromMonitorProcessing", new MemoryStream(new byte[4]));
-        data.SetData("CanIncludeInClipboardHistory", new MemoryStream(BitConverter.GetBytes(0)));
-        data.SetData("CanUploadToCloudClipboard", new MemoryStream(BitConverter.GetBytes(0)));
-        Clipboard.SetDataObject(data, copy: true);
+        if (TopLevel.GetTopLevel(Owner ?? UiWait.ActiveWindow())?.Clipboard is not { } clipboard) return;
+        var item = new DataTransferItem();
+        item.SetText(secret);
+        if (OperatingSystem.IsWindows())
+        {
+            item.Set(DataFormat.CreateBytesPlatformFormat("ExcludeClipboardContentFromMonitorProcessing"), new byte[4]);
+            item.Set(DataFormat.CreateBytesPlatformFormat("CanIncludeInClipboardHistory"), BitConverter.GetBytes(0));
+            item.Set(DataFormat.CreateBytesPlatformFormat("CanUploadToCloudClipboard"), BitConverter.GetBytes(0));
+        }
+        else if (OperatingSystem.IsMacOS())
+            item.Set(DataFormat.CreateStringPlatformFormat("org.nspasteboard.ConcealedType"), "");
+        else
+            item.Set(DataFormat.CreateStringPlatformFormat("x-kde-passwordManagerHint"), "secret");
+        var data = new DataTransfer();
+        data.Add(item);
+        try
+        {
+            await clipboard.SetDataAsync(data);
+        }
+        catch (Exception ex)
+        {
+            Status = L.F("Copy.Failed", ex.Message);
+            return;
+        }
         Status = L.Get("Copy.PasswordCopied");
         await Task.Delay(TimeSpan.FromSeconds(30));
         try
         {
-            if (Clipboard.ContainsText() && Clipboard.GetText() == secret)
+            if (await clipboard.TryGetTextAsync() == secret)
             {
-                Clipboard.Clear();
+                await clipboard.ClearAsync();
                 Status = L.Get("Copy.PasswordCleared");
             }
         }
@@ -971,25 +1005,25 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void OpenTrace()
     {
         if (SelectedServer?.Entry is not { } server) return;
-        var existing = Application.Current.Windows.OfType<TraceWindow>().FirstOrDefault(w => w.ServerId == server.Id);
+        var existing = OpenWindows<TraceWindow>().FirstOrDefault(w => w.ServerId == server.Id);
         if (existing != null)
         {
             existing.Activate();
             return;
         }
-        new TraceWindow(_host, server.Clone()) { Owner = Owner }.Show();
+        ShowOwned(new TraceWindow(_host, server.Clone()));
     }
 
     private void OpenWhois()
     {
         if (SelectedServer?.Entry is not { } server) return;
-        var existing = Application.Current.Windows.OfType<WhoisWindow>().FirstOrDefault(w => w.ServerId == server.Id);
+        var existing = OpenWindows<WhoisWindow>().FirstOrDefault(w => w.ServerId == server.Id);
         if (existing != null)
         {
             existing.Activate();
             return;
         }
-        new WhoisWindow(_host, server.Id) { Owner = Owner }.Show();
+        ShowOwned(new WhoisWindow(_host, server.Id));
     }
 
     private void FindPanel()
@@ -1001,7 +1035,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         try
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            UiExtensions.OpenWithShell(url);
         }
         catch (Exception)
         {
@@ -1012,13 +1046,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void OpenPing()
     {
         if (SelectedServer?.Entry is not { } server) return;
-        var existing = Application.Current.Windows.OfType<PingWindow>().FirstOrDefault(w => w.ServerId == server.Id);
+        var existing = OpenWindows<PingWindow>().FirstOrDefault(w => w.ServerId == server.Id);
         if (existing != null)
         {
             existing.Activate();
             return;
         }
-        new PingWindow(_host, server.Clone()) { Owner = Owner }.Show();
+        ShowOwned(new PingWindow(_host, server.Clone()));
     }
 
     private void SetupKey()
@@ -1039,7 +1073,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Status = L.F("Main.TestOkStatus", s.Name);
             _host.Health.CheckNow(s.Id);
             if (s.Facts?.OsId == null && ServerInventoryService.Supported(s)) _ = _host.Inventory.RefreshAsync(s.Id);
-            MessageBox.Show(Owner!, L.F("Main.TestOk", s.Display, result), L.Get("Main.TestTitle"),
+            MessageBox.Show(Owner, L.F("Main.TestOk", s.Display, result), L.Get("Main.TestTitle"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
@@ -1056,7 +1090,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void OpenFirewall()
     {
         if (SelectedServer == null) return;
-        new FirewallWindow(_host, [SelectedServer.Entry.Clone()]) { Owner = Owner }.Show();
+        ShowOwned(new FirewallWindow(_host, [SelectedServer.Entry.Clone()]));
     }
 
     /// <summary>The group's servers, subgroups included (servers behind a jump host are left out by the window).</summary>
@@ -1067,7 +1101,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             .Where(s => s.Group == g.Path || s.Group.StartsWith(g.Path + "/", StringComparison.Ordinal))
             .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).Select(s => s.Clone()).ToList());
         if (servers.Count == 0) return;
-        new FirewallWindow(_host, servers, g.Path) { Owner = Owner }.Show();
+        ShowOwned(new FirewallWindow(_host, servers, g.Path));
     }
 
     private NetworkMapWindow? _mapWindow;
@@ -1083,15 +1117,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         string? select = null;
         if (SelectedNode is ForwardNode { Forward: { } f } && SelectedServer != null) select = $"{SelectedServer.Entry.Id:N}|{f.Key}";
         else if (SelectedServer != null) select = MapNode.KeyOf(SelectedServer.Entry);
-        _mapWindow = new NetworkMapWindow(_host, this, select) { Owner = Owner };
+        _mapWindow = new NetworkMapWindow(_host, this, select);
         _mapWindow.Closed += (_, _) => _mapWindow = null;
-        _mapWindow.Show();
+        ShowOwned(_mapWindow);
     }
 
     private void OpenPortForwards()
     {
         if (SelectedServer == null) return;
-        new PortForwardWindow(_host, SelectedServer.Entry.Clone(), this) { Owner = Owner }.Show();
+        ShowOwned(new PortForwardWindow(_host, SelectedServer.Entry.Clone(), this));
     }
 
     /// <summary>
@@ -1149,13 +1183,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void RunScript(ScriptEntry? script)
     {
         if (script == null || SelectedServer == null) return;
-        new ScriptRunWindow(_host, SelectedServer.Entry.Id, script.Clone()) { Owner = Owner }.Show();
+        ShowOwned(new ScriptRunWindow(_host, SelectedServer.Entry.Id, script.Clone()));
     }
 
     private void InstallDocker()
     {
         if (SelectedServer == null) return;
-        new ScriptRunWindow(_host, SelectedServer.Entry.Id, BuiltinScripts.DockerScript(_host.Vault.Data)) { Owner = Owner }.Show();
+        ShowOwned(new ScriptRunWindow(_host, SelectedServer.Entry.Id, BuiltinScripts.DockerScript(_host.Vault.Data)));
     }
 
     private static string MenuName(ScriptEntry s) => s.Kind == ScriptKind.Compose ? s.Name + "  [compose]" : s.Name;
@@ -1163,7 +1197,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void OpenUptimeHistory()
     {
         if (SelectedServer == null) return;
-        new UptimeWindow(_host, SelectedServer.Entry.Clone()) { Owner = Owner }.Show();
+        ShowOwned(new UptimeWindow(_host, SelectedServer.Entry.Clone()));
     }
 
     private void CopyAttribute()
@@ -1177,7 +1211,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (SelectedNode is not AttributeNode a || !QrPayloads.CanShow(a.Attribute.Value)) return;
         var label = a.Server is { } s ? $"{s.Entry.Name}: {a.Attribute.Label}" : a.Attribute.Label;
-        new QrWindow(label, a.Attribute.Value) { Owner = Owner }.Show();
+        ShowOwned(new QrWindow(label, a.Attribute.Value));
     }
 
     private void DeleteAttribute()
@@ -1371,7 +1405,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var place = backup.Config.Target == BackupTarget.Folder
                 ? backup.Config.Folder!
                 : _host.Vault.Read(d => d.Servers.FirstOrDefault(s => s.Id == backup.Config.ServerId)?.Name) ?? "?";
-            var answer = MessageBox.Show(Owner!, L.F("Restore.ChooseSource", place), title,
+            var answer = MessageBox.Show(Owner, L.F("Restore.ChooseSource", place), title,
                 MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Yes);
             if (answer == MessageBoxResult.Cancel) return;
             if (answer == MessageBoxResult.Yes)
@@ -1458,7 +1492,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void About()
     {
         var version = typeof(App).Assembly.GetName().Version?.ToString(3);
-        MessageBox.Show(Owner!, L.F("About.Text", version, AppPaths.DataDir), L.Get("About.Title"),
+        MessageBox.Show(Owner, L.F("About.Text", version, AppPaths.DataDir), L.Get("About.Title"),
             MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
@@ -1586,9 +1620,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     // ---------- helpers ----------
 
     public bool Confirm(string text) =>
-        MessageBox.Show(Owner!, text, "Quaykeep", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) ==
+        MessageBox.Show(Owner, text, "Quaykeep", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) ==
         MessageBoxResult.Yes;
 
     public void Warn(string title, string text) =>
-        MessageBox.Show(Owner!, text, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        MessageBox.Show(Owner, text, title, MessageBoxButton.OK, MessageBoxImage.Warning);
 }

@@ -2,32 +2,51 @@
 
 English | [Русский](README.ru.md)
 
-Quaykeep is a personal Windows tool for working with lots of SSH servers:
+Quaykeep is a personal tool for Windows, macOS and Linux for working with lots of SSH servers:
 servers, passwords and keys in an encrypted vault, one-click sessions, automatic switching of a server
 from password to key login, and a built-in SSH agent (like Pageant, for OpenSSH)
-that lives in the tray and starts with Windows.
+that lives in the tray (the menu bar on macOS) and starts with your session.
 
 ## Installation
 
-Download `Quaykeep-X.Y.Z-win-x64.zip` from [Releases](https://github.com/nickolsky/quaykeep/releases),
-unpack it into any folder (for example `C:\Tools\Quaykeep`) and run `Quaykeep.exe`.
-It needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (x64) and the system OpenSSH client
-(included in Windows 10/11). Data is kept in the `data` folder next to the program.
+Download page: **[nickolsky.github.io/quaykeep](https://nickolsky.github.io/quaykeep/)**, with a
+[setup guide](https://nickolsky.github.io/quaykeep/guide.html) for every OS. The files are on
+[Releases](https://github.com/nickolsky/quaykeep/releases):
+
+| OS | File | Notes |
+|---|---|---|
+| Windows 10/11 x64 | `Quaykeep-win-x64-Setup.exe` | installs for your user into `%LOCALAPPDATA%\QuaykeepApp`, no admin rights |
+| | `Quaykeep-win-x64-Portable.zip` | runs from any folder, keeps its data next to itself |
+| macOS 14+ | `Quaykeep-osx-arm64.pkg` / `Quaykeep-osx-x64.pkg` | Apple Silicon / Intel, installs `/Applications/Quaykeep.app` |
+| Linux x64 | `Quaykeep-linux-x64.AppImage` | `chmod +x` and run; needs FUSE, and WebKitGTK 4.1 for the built-in terminal and editor |
+
+Nothing else is needed: the .NET runtime is inside the package. Sessions in an external terminal use the system OpenSSH
+client (`ssh`). The packages are not code-signed yet, so SmartScreen (Windows) and Gatekeeper (macOS: System Settings →
+Privacy & Security → Open Anyway) ask once.
 
 **Updates**: once a day the program checks GitHub releases (Settings → Updates, which also has "Check for updates"
-and "Update and restart"). The archive is verified by SHA-256 and only program files are replaced; `data` is not touched.
-Files in use (for example `qk.exe` in an open terminal) are renamed to `*.sshm-old` and deleted on the next start.
+and "Update and restart"). Installed copies update through [Velopack](https://velopack.io) (delta packages, applied on
+restart). A copy unpacked from the older `Quaykeep-X.Y.Z-win-x64.zip` keeps updating itself in place from that zip: the
+archive is verified by SHA-256, only program files are replaced and `data` is not touched; files in use (for example
+`qk.exe` in an open terminal) are renamed to `*.sshm-old` and deleted on the next start.
 
 ## Building from source
 
+The app is [Avalonia](https://avaloniaui.net) on .NET 10; it builds on any of the three OSes.
+
 ```powershell
-.\publish.ps1                 # build into .\app (data goes to .\data next to Quaykeep.sln)
-.\app\Quaykeep.exe            # first start: create the master password
-.\publish-dev.ps1             # a test copy in .\app-dev with its own data, runs side by side with the main one
-.\release.ps1 [-Publish]      # release artifact artifacts\Quaykeep-<version>-win-x64.zip (+ .sha256) and a GitHub release
+dotnet build Quaykeep.sln
+dotnet run --project src/Quaykeep   # data goes to .\data next to Quaykeep.sln
+.\publish.ps1                       # Windows: build into .\app
+.\publish-dev.ps1                   # a test copy in .\app-dev with its own data, runs side by side with the main one
+pwsh ./release.ps1                  # installers and update feeds into artifacts/release (Windows + Linux; macOS on a Mac)
 ```
 
-The version is set in `Directory.Build.props` (`<Version>`); the release tag is `v<version>`.
+The version is set in `Directory.Build.props` (`<Version>`); the release tag is `v<version>`. The **release** GitHub
+workflow (Actions → release → Run workflow) builds Windows and Linux on a Windows runner and both Mac architectures on a
+Mac runner, then publishes the release with everything; the **pages** workflow publishes `site/` (the download page and
+guides) to GitHub Pages (Settings → Pages → Source: GitHub Actions). Optional code signing: the `QK_WIN_SIGN_PARAMS`,
+`QK_MAC_APP_IDENTITY`, `QK_MAC_INSTALL_IDENTITY` and `QK_MAC_NOTARY_PROFILE` secrets (see `release.ps1`).
 
 ## Upgrading from SSH Manager
 
@@ -47,8 +66,8 @@ program files and the old autostart entry are removed on the first start. What y
 On servers nothing changes: script variables (`SSHM_RESULT`, `SSHM_HOST`…), `/tmp/sshm-*`, `~/.cache/sshm` and the `sshm`
 markers in `sshd_config` and iptables comments keep their names, so earlier installs and forwards are still recognized.
 
-On first start the program asks you to choose a master password and offers to start with Windows
-(checked by default; can be changed in Settings). When started with Windows, the program goes straight to the tray,
+On first start the program asks you to choose a master password and offers to start at login
+(checked by default; can be changed in Settings). Started that way, the program goes straight to the tray,
 **locked**; the unlock window appears the first time a server or the agent is used.
 
 ## Features
@@ -58,12 +77,13 @@ On first start the program asks you to choose a master password and offers to st
   by OS, region and containers; double click / Enter connects, Ctrl+N adds a server, F5 refreshes everything.
 - **Server menu** (right click), grouped: connect, edit, copy, duplicate → install, port forwards, keys, AI agents →
   ping, checks, monitoring, history → reboot, delete. **Copy ▸**: host name (reverse DNS for an IP), IP address (resolved
-  through DNS from this PC for a name), password (kept out of the Windows clipboard history and cleared from the clipboard
-  after 30 seconds), public key, ssh command, and `http://` / `https://` addresses when port 80 / 443 / 8080 / 8443 is open
+  through DNS from this PC for a name), password (marked so that clipboard histories skip it on Windows, macOS and KDE,
+  and cleared from the clipboard after 30 seconds), public key, ssh command, and `http://` / `https://` addresses when port 80 / 443 / 8080 / 8443 is open
   on the server.
 - **Ping…**: ICMP ping from this PC once a second in its own window: time, TTL, loss, min / avg / max. Many VPN servers drop
   ICMP, so monitoring does not use it; when there are no replies, the window shows the state of the SSH port instead.
-- **Traceroute…**: the route hop by hop, from this PC to the server (like `tracert`), or **from the server** over SSH to
+- **Traceroute…**: the route hop by hop, from this PC to the server (like `tracert`; on macOS / Linux through the system
+  `traceroute` or `tracepath`), or **from the server** over SSH to
   this PC, another server or any address (`traceroute`, installed when missing, or `tracepath`).
   - **Each hop** gets its reverse DNS name, network (AS and provider) and location, from the lookup service chosen in
     the settings (see Region and Hoster below).
@@ -195,18 +215,21 @@ On first start the program asks you to choose a master password and offers to st
   N hours, a "Back up now" button. **Restore**: "Restore from backup…" (Settings → Backup
   or the "File" menu): the latest backup from the folder / server or any `quaykeep-data-*.zip`; it needs the master password
   as of the backup; the current data is saved to `data\backups\before-restore-*.zip` before it is replaced.
-- **One-click connection**: a session opens in a Windows Terminal tab (or a new window / a plain console,
-  see Settings). With a key it goes through the built-in agent; with a password, the password is filled in automatically through
+- **One-click connection**: a session opens in the built-in terminal or outside the program (Settings → Terminal):
+  a Windows Terminal tab, a new window or a plain console on Windows, Terminal.app on macOS, and on Linux `$TERMINAL` or the
+  first of x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal, kitty, alacritty, wezterm, foot, xterm.
+  With a key it goes through the built-in agent; with a password, the password is filled in automatically through
   `SSH_ASKPASS`. Neither the password nor the private key ever reaches the command line or the disk.
-- **Built-in terminal** (Settings → Terminal → "Built-in terminal"): sessions in tabs of the program window
-  (xterm.js). For bash / zsh an integration is loaded from `~/.cache/sshm` (rc files are not changed): suggestions while typing
+- **Built-in terminal** (Settings → Terminal → "Built-in terminal", the default on macOS and Linux): sessions in tabs of
+  the program window (xterm.js in the system web engine: WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux).
+  For bash / zsh an integration is loaded from `~/.cache/sshm` (rc files are not changed): suggestions while typing
   from the server's history, commands, subcommands and flags of docker / compose / systemctl / journalctl / apt / git / ufw…, files,
   containers, services, packages; a grey suggestion from history (→ accepts), Ctrl+Space shows the list, Tab inserts.
   The `edit FILE` command opens a file in the built-in editor, Ctrl+Shift+F lists the files in the current folder.
 - **File manager (SFTP)**: the "Files" button, two panels in the Far style, this PC and the server; F5 copy,
   F6 move, F7 folder, F8 delete, F2 rename, F4 edit; Insert / Shift+arrows select files,
   Num + / Num − select / deselect by mask (`*.yml;*.conf`), Num * inverts, Ctrl+click / Shift+click, Shift+right click (drag it over several);
-  drag and drop between panels and from Explorer, a transfer queue with progress and cancel, permissions (chmod).
+  drag and drop between panels and from the system's file manager, a transfer queue with progress and cancel, permissions (chmod).
 - **Editor** (CodeMirror 6): highlighting for shell / yaml / json / nginx / ini / Dockerfile…, find and replace, Ctrl+S.
   Encoding and line endings stay as they were; a file changed on the server is not silently overwritten;
   without write access, saving goes through sudo (the file keeps its owner and permissions).
@@ -218,16 +241,19 @@ On first start the program asks you to choose a master password and offers to st
   fails, password login is put back through the connection that is still open. It needs root or sudo; the saved password
   stays (sudo needs it).
 - **Keys**: generate Ed25519 / RSA-4096, import (OpenSSH, PEM, PuTTY .ppk, including with a passphrase),
-  copy the public key, export the private key (the file is readable only by your Windows user).
+  copy the public key, export the private key (the file is readable only by your user).
 - **Server key checks**: the server's key fingerprint is shown on the first connection; a changed key
   is shown as a warning. The program uses its own `data\known_hosts`.
-- **Tray**: quick access to servers (the "Connect" menu), lock, exit. Closing the window minimizes it to the tray.
-- **Hotkey** **Win+Alt+X** (system-wide) shows the window, pressing it again hides it; change it or
+- **Tray** (the menu bar on macOS): quick access to servers (the "Connect" menu), lock, exit. Closing the window
+  minimizes it to the tray. Notifications (a server went down, a reboot finished, an update) appear in the corner of the screen.
+- **Hotkey** **Win+Alt+X** (system-wide, Windows only) shows the window, pressing it again hides it; change it or
   turn it off in "Settings → Interface" (click the field and press the combination).
-- **Auto-lock**: after N minutes of PC inactivity (120 by default) and, optionally, on Win+L.
+- **Auto-lock**: after N minutes of inactivity (120 by default) and, optionally, when the computer locks (Win+L, the macOS
+  lock screen, the desktop's screen locker on Linux).
 - **Console**: `qk <server name>` connects to a saved server right in the current terminal,
-  `qk list` lists the servers, `qk cron <server>` shows scheduled jobs. Add the `app` folder to PATH
-  to run `qk` from anywhere.
+  `qk list` lists the servers, `qk cron <server>` shows scheduled jobs. `qk` is next to the program
+  (`%LOCALAPPDATA%\QuaykeepApp\current\qk.exe`, `/Applications/Quaykeep.app/Contents/MacOS/qk`); in an AppImage it is
+  `Quaykeep-linux-x64.AppImage qk`. Settings → Terminal shows the exact command; put a link or an alias in PATH to type just `qk`.
 - **AI agents (MCP)**: Claude Code, Codex and others can manage servers through Quaykeep, see below.
 
 ## AI agents (MCP)
@@ -237,13 +263,15 @@ keys from the vault; the agent never gets them. Turn it on in "Settings → AI a
 connection commands with a "Copy" button:
 
 ```powershell
-claude mcp add --scope user quaykeep -- "D:\…\app\qk.exe" mcp          # Claude Code (stdio)
+claude mcp add --scope user quaykeep -- "%LOCALAPPDATA%\QuaykeepApp\current\qk.exe" mcp     # Claude Code (stdio), Windows
+claude mcp add --scope user quaykeep -- "/Applications/Quaykeep.app/Contents/MacOS/qk" mcp  # macOS
+claude mcp add --scope user quaykeep -- "$HOME/Applications/Quaykeep-linux-x64.AppImage" qk mcp  # Linux AppImage
 ```
 
 ```toml
 # Codex: ~/.codex/config.toml
 [mcp_servers.quaykeep]
-command = 'D:\…\app\qk.exe'
+command = 'C:\Users\…\AppData\Local\QuaykeepApp\current\qk.exe'
 args = ["mcp"]
 tool_timeout_sec = 900
 ```
@@ -282,7 +310,7 @@ each level includes the previous ones:
 
 ## SSH agent
 
-The agent listens on the named pipe `\\.\pipe\openssh-ssh-agent`, the standard address used by
+**Windows**: the agent listens on the named pipe `\\.\pipe\openssh-ssh-agent`, the standard address used by
 `ssh.exe`, `git` and VS Code Remote-SSH. If that pipe is already taken by another agent (for example **1Password** or
 the Windows `ssh-agent` service), Quaykeep uses `\\.\pipe\quaykeep-agent-<user>`.
 Sessions started from Quaykeep work either way. For other programs to take keys
@@ -293,13 +321,26 @@ user environment variable:
 [Environment]::SetEnvironmentVariable('SSH_AUTH_SOCK', '\\.\pipe\quaykeep-agent-<user>', 'User')
 ```
 
+**macOS / Linux**: the agent is a Unix socket only your user can open: `$XDG_RUNTIME_DIR/quaykeep-agent.sock` on Linux,
+`~/.quaykeep-agent.sock` on macOS (and on Linux without `XDG_RUNTIME_DIR`). Point your shell at it
+(`~/.zshrc` / `~/.bashrc`), or ssh alone through `IdentityAgent` in `~/.ssh/config`:
+
+```sh
+export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/quaykeep-agent.sock"   # Linux
+export SSH_AUTH_SOCK="$HOME/.quaykeep-agent.sock"             # macOS
+```
+
 The exact agent address is shown in the status bar of the main window. While the vault is locked, the agent does not
 hand out keys (when a client asks, the unlock window appears; can be turned off in Settings).
 
 ## Data and security
 
-All data lives in the `data` folder: next to `Quaykeep.exe`, or next to `Quaykeep.sln` in a source checkout (the folder is
-in `.gitignore`):
+All data lives in the `data` folder:
+
+- installed copies: `%LOCALAPPDATA%\Quaykeep\data` (Windows), `~/Library/Application Support/Quaykeep/data` (macOS),
+  `~/.local/share/Quaykeep/data` (Linux); on macOS and Linux the folder is readable only by your user;
+- a portable / unpacked copy: `data` next to the program;
+- a source checkout: `data` next to `Quaykeep.sln` (the folder is in `.gitignore`).
 
 | File | Contents |
 |---|---|
@@ -349,9 +390,11 @@ and the run history (parameters without secrets, exit code, the tail of the outp
 ```
 src/Quaykeep.Core   vault, cryptography, key formats, SSH agent, IPC, launching ssh, key setup (SSH.NET),
                       RU/EN strings, monitoring, metrics, inventory, GeoIP, iptables, scripts, backup
-src/Quaykeep        the WPF app: windows, server tree, tray, autostart, auto-lock
-src/qk              console helper: terminal tab, SSH_ASKPASS, `qk <server>`
+src/Quaykeep        the Avalonia app: windows, server tree, tray, notifications, updates (Velopack), auto-lock
+src/qk              console helper: terminal tab, SSH_ASKPASS, `qk <server>`, `qk mcp`
 tests/Quaykeep.Tests  unit tests + compatibility with ssh-keygen/ssh-add + e2e
+site/               the download page and setup guides (GitHub Pages)
+release.ps1         installers and update feeds for Windows, Linux and macOS (the "release" workflow runs it)
 ```
 
 Tests: `dotnet test`. The end-to-end test with a real sshd is turned on with the variable

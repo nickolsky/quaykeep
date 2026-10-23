@@ -1,8 +1,8 @@
 using System.Globalization;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
 using Quaykeep.Core.Monitoring;
 
 namespace Quaykeep.Views.Controls;
@@ -11,22 +11,20 @@ namespace Quaykeep.Views.Controls;
 /// Bar chart of uptime buckets: stacked up / degraded / down shares (availability) or the average latency.
 /// Hovering a bar shows its period and numbers.
 /// </summary>
-public sealed class UptimeChart : FrameworkElement
+public sealed class UptimeChart : Control
 {
     private const double AxisHeight = 18;
     private const double LeftPad = 44;
 
-    private readonly ToolTip _tip = new() { Placement = System.Windows.Controls.Primitives.PlacementMode.Relative };
     private IReadOnlyList<UptimeBucket> _buckets = [];
     private int _hover = -1;
 
     public UptimeChart()
     {
-        ToolTip = _tip;
-        ToolTipService.SetInitialShowDelay(this, 0);
-        ToolTipService.SetBetweenShowDelay(this, 0);
-        ToolTipService.SetShowDuration(this, int.MaxValue);
+        ToolTip.SetPlacement(this, PlacementMode.Pointer);
+        ToolTip.SetShowDelay(this, 0);
         MinHeight = 90;
+        ActualThemeVariantChanged += (_, _) => InvalidateVisual();
     }
 
     public bool ShowLatency { get; set; }
@@ -45,14 +43,14 @@ public sealed class UptimeChart : FrameworkElement
         }
     }
 
-    private Brush Res(string key, Color fallback) => TryFindResource(key) as Brush ?? new SolidColorBrush(fallback);
+    private IBrush Res(string key, Color fallback) => this.Brush(key, new SolidColorBrush(fallback));
 
-    private Rect Plot => new(LeftPad, 4, Math.Max(0, ActualWidth - LeftPad - 4), Math.Max(0, ActualHeight - AxisHeight - 6));
+    private Rect Plot => new(LeftPad, 4, Math.Max(0, Bounds.Width - LeftPad - 4), Math.Max(0, Bounds.Height - AxisHeight - 6));
 
-    protected override void OnRender(DrawingContext dc)
+    public override void Render(DrawingContext dc)
     {
         var plot = Plot;
-        dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, ActualWidth, ActualHeight)); // hit testing for the tooltip
+        dc.DrawRectangle(Brushes.Transparent, null, new Rect(Bounds.Size)); // hit testing for the tooltip
         if (_buckets.Count == 0 || plot.Width <= 0 || plot.Height <= 0) return;
 
         var text = Res("TextFillColorSecondaryBrush", Colors.Gray);
@@ -121,43 +119,36 @@ public sealed class UptimeChart : FrameworkElement
         }
     }
 
-    private void DrawText(DrawingContext dc, string s, Brush brush, Point at, bool alignRight, bool centerY, bool centerX = false)
+    private void DrawText(DrawingContext dc, string s, IBrush brush, Point at, bool alignRight, bool centerY, bool centerX = false)
     {
-        var ft = new FormattedText(s, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), 11, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var ft = new FormattedText(s, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface(FontFamily.Default), 11, brush);
         var x = alignRight ? at.X - ft.Width : centerX ? at.X - ft.Width / 2 : at.X;
-        x = Math.Clamp(x, 0, Math.Max(0, ActualWidth - ft.Width));
+        x = Math.Clamp(x, 0, Math.Max(0, Bounds.Width - ft.Width));
         var y = centerY ? at.Y - ft.Height / 2 : at.Y;
         dc.DrawText(ft, new Point(x, y));
     }
 
-    protected override void OnMouseMove(MouseEventArgs e)
+    protected override void OnPointerMoved(PointerEventArgs e)
     {
-        base.OnMouseMove(e);
+        base.OnPointerMoved(e);
         var plot = Plot;
         var pos = e.GetPosition(this);
-        var i = _buckets.Count == 0 || plot.Width <= 0 ? -1 : (int)((pos.X - plot.Left) / (plot.Width / _buckets.Count));
+        var i = _buckets.Count == 0 || plot.Width <= 0 ? -1 : (int)Math.Floor((pos.X - plot.Left) / (plot.Width / _buckets.Count));
         if (i < 0 || i >= _buckets.Count) i = -1;
         if (i == _hover) return;
         _hover = i;
         InvalidateVisual();
-        if (i < 0)
-        {
-            _tip.IsOpen = false;
-            return;
-        }
-        _tip.Content = Describe(_buckets[i]);
-        _tip.HorizontalOffset = pos.X + 14;
-        _tip.VerticalOffset = pos.Y + 14;
-        _tip.PlacementTarget = this;
-        _tip.IsOpen = true;
+        // reopened for every bar, so it follows the pointer
+        ToolTip.SetIsOpen(this, false);
+        ToolTip.SetTip(this, i < 0 ? null : Describe(_buckets[i]));
+        if (i >= 0) ToolTip.SetIsOpen(this, true);
     }
 
-    protected override void OnMouseLeave(MouseEventArgs e)
+    protected override void OnPointerExited(PointerEventArgs e)
     {
-        base.OnMouseLeave(e);
+        base.OnPointerExited(e);
         _hover = -1;
-        _tip.IsOpen = false;
+        ToolTip.SetIsOpen(this, false);
         InvalidateVisual();
     }
 
