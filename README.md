@@ -80,7 +80,8 @@ On first start the program asks you to choose a master password and offers to st
   the instance and `ssm:StartSession` on that document. When the SSO sign-in expires, **Sign in to AWS (SSO)** in the
   server menu runs `aws sso login`. Ping, availability checks and GeoIP are skipped: this PC has no direct route.
   - **AWS SSM shell only** (login choice next to Password / SSH key): no SSH and no key. Connecting opens the plain
-    `aws ssm start-session --target …` in the system terminal, as `ssm-user`, and leaves nothing on the server.
+    `aws ssm start-session --target …` as `ssm-user` (in a built-in terminal tab on Windows, through a pseudo console;
+    otherwise, and on macOS / Linux, in the system terminal) and leaves nothing on the server.
     Files, scripts, monitoring and agents are off until **Set up key login…**, which (like the password version for
     ordinary servers) installs a key through AWS for the Linux user you name (e.g. `ubuntu` or `ssm-user`, with sudo),
     checks key login through SSM and switches the server to it.

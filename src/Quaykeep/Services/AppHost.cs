@@ -16,6 +16,7 @@ using Quaykeep.Core.Pipes;
 using Quaykeep.Core.Scripts;
 using Quaykeep.Core.Ssh;
 using Quaykeep.Core.Storage;
+using Quaykeep.Core.Terminal;
 using Quaykeep.Services.Platform;
 using Quaykeep.Views;
 
@@ -394,13 +395,19 @@ public sealed class AppHost : IDisposable
         _main?.OpenEditor(server, path);
     }
 
-    /// <remarks>An SSM shell without SSH login is the aws CLI itself, so it opens in the system's terminal too.</remarks>
+    /// <remarks>
+    /// An SSM shell without SSH login is the aws CLI itself: a tab runs it in a Windows pseudo console, elsewhere it
+    /// opens in the system's terminal.
+    /// </remarks>
     public bool UseBuiltInTerminal(ServerEntry server) =>
-        SettingsStore.Settings.Terminal == TerminalMode.BuiltIn && server.SshLogin &&
+        SettingsStore.Settings.Terminal == TerminalMode.BuiltIn &&
+        (server.SshLogin || OperatingSystem.IsWindows() && LocalTerminalSession.Available) &&
         string.IsNullOrWhiteSpace(server.JumpHost) && string.IsNullOrWhiteSpace(server.ExtraArgs);
 
-    public TerminalSession CreateTerminalSession(ServerEntry server) =>
-        new(Ssh, server, SettingsStore.Settings.ServerAliveInterval, SettingsStore.Settings.TerminalIntegration);
+    public ITerminalSession CreateTerminalSession(ServerEntry server) =>
+        !server.SshLogin && OperatingSystem.IsWindows()
+            ? new LocalTerminalSession(server, AwsSsm.ShellStartInfo(server))
+            : new TerminalSession(Ssh, server, SettingsStore.Settings.ServerAliveInterval, SettingsStore.Settings.TerminalIntegration);
 
     private void AfterSessionStarted(ServerEntry server)
     {

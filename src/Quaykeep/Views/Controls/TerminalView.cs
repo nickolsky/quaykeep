@@ -9,20 +9,20 @@ namespace Quaykeep.Views.Controls;
 
 /// <summary>
 /// One built-in terminal: xterm.js in the system web view (Assets\terminal, see <see cref="WebPage"/>) connected to a
-/// <see cref="TerminalSession"/>. Output is batched every few milliseconds so a flood (cat of a big file) does not stall
+/// <see cref="ITerminalSession"/> (SSH, or the local AWS SSM shell). Output is batched every few milliseconds so a flood (cat of a big file) does not stall
 /// the UI thread.
 /// </summary>
 public sealed class TerminalView : Border, IDisposable
 {
     private readonly WebPage _web = new("terminal", "terminal.html", contextMenu: false);
-    private readonly Func<TerminalSession> _createSession;
+    private readonly Func<ITerminalSession> _createSession;
     private readonly string? _command;
     private readonly bool _autoSuggest;
     private TerminalAssist? _assist;
     private CancellationTokenSource? _completing;
     private readonly StringBuilder _pending = new();
     private readonly DispatcherTimer _flush;
-    private TerminalSession? _session;
+    private ITerminalSession? _session;
     private bool _ready;
     private bool _connecting;
     private bool _disposed;
@@ -31,7 +31,7 @@ public sealed class TerminalView : Border, IDisposable
     /// <param name="createSession">New session for this tab (also used to reconnect).</param>
     /// <param name="command">Typed into the shell after connecting (quick actions).</param>
     /// <param name="autoSuggest">Show the suggestion list while typing (otherwise on Ctrl+Space only).</param>
-    public TerminalView(Func<TerminalSession> createSession, string? command, bool autoSuggest = true)
+    public TerminalView(Func<ITerminalSession> createSession, string? command, bool autoSuggest = true)
     {
         _createSession = createSession;
         _command = command;

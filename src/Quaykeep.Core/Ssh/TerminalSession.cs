@@ -13,7 +13,7 @@ namespace Quaykeep.Core.Ssh;
 /// is held until the first prompt, the source line is typed there and everything up to the loaded mark is cut.
 /// </summary>
 public sealed class TerminalSession(SshClientFactory ssh, ServerEntry server, int keepAliveSeconds = 30, bool integrate = true)
-    : IDisposable
+    : ITerminalSession
 {
     private static readonly TimeSpan PromptQuiet = TimeSpan.FromMilliseconds(300);
     private static readonly TimeSpan PromptWait = TimeSpan.FromSeconds(5);
