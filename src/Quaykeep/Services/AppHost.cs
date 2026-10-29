@@ -53,6 +53,7 @@ public sealed class AppHost : IDisposable
         Health = new HealthMonitor(Vault, SettingsStore, Uptime);
         Metrics = new MetricsCollector(Ssh);
         Forwards = new PortForwardService(Vault, Ssh);
+        Tunnels = new TunnelService(Vault, Ssh);
         Firewall = new FirewallService(Vault, Ssh);
         Backup = new BackupService(Vault, SettingsStore, Ssh);
         Scripts = new ScriptRunner(Ssh);
@@ -88,6 +89,7 @@ public sealed class AppHost : IDisposable
     public UptimeLog Uptime { get; } = new();
     public MetricsCollector Metrics { get; }
     public PortForwardService Forwards { get; }
+    public TunnelService Tunnels { get; }
     public FirewallService Firewall { get; }
     public BackupService Backup { get; }
     public ScriptRunner Scripts { get; }
@@ -297,6 +299,8 @@ public sealed class AppHost : IDisposable
             SyncBuiltinScripts();
             Health.Start();
             RefreshBackground(force: false);
+            // running tunnels survive a lock; the ones marked "start with Quaykeep" open on every unlock (a no-op when on)
+            Tunnels.StartAutostart();
         }
         _tray?.UpdateState();
         StateChanged?.Invoke(this, EventArgs.Empty);
@@ -630,6 +634,7 @@ public sealed class AppHost : IDisposable
         _idleTimer.Stop();
         _backupTimer.Stop();
         Health.Dispose();
+        Tunnels.Dispose();
         Agent.Dispose();
         Control.Dispose();
         Mcp.Dispose();

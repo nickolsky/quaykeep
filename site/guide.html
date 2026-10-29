@@ -30,6 +30,7 @@
     <a href="#first">First start</a>
     <a href="#connect">Connecting</a>
     <a href="#ssm">· AWS SSM</a>
+    <a href="#tunnels">· Tunnels</a>
     <a href="#agent">SSH agent</a>
     <a href="#qk">The qk command</a>
     <a href="#mcp">AI agents (MCP)</a>
@@ -125,6 +126,12 @@
       <li>With AWS SSO, when the sign-in expires, use <b>Sign in to AWS (SSO)</b> in the server's menu (it runs
         <code>aws sso login</code> and opens the browser).</li>
     </ul>
+
+    <h3 id="tunnels">Tunnels</h3>
+    <p><b>Tunnels…</b> in a server's menu keeps ports on this PC that lead through the server: <b>port → address</b>
+      (like <code>ssh -L</code>), a <b>SOCKS proxy</b> (like <code>ssh -D</code>), and for AWS SSM servers
+      <b>SSM port forwarding</b> without SSH. They listen on 127.0.0.1 only, run while Quaykeep runs, reconnect by
+      themselves, and can start with Quaykeep.</p>
 
     <h2 id="agent">SSH agent</h2>
     <p>While Quaykeep runs, its agent hands the vault's keys to <code>ssh</code>, <code>git</code>, VS Code Remote-SSH and

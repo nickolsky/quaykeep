@@ -60,6 +60,8 @@ public sealed class ServerEntry
     public List<string> McpFolders { get; set; } = [];
     /// <summary>Firewall rules Quaykeep keeps on the server (null = never set up).</summary>
     public FirewallConfig? Firewall { get; set; }
+    /// <summary>Ports on this PC that lead through the server (ssh -L / -D, SSM port forwarding).</summary>
+    public List<Tunnel> Tunnels { get; set; } = [];
 
     public string Display => $"{Username}@{Host}" + (Port != 22 ? $":{Port}" : "");
 
@@ -77,8 +79,47 @@ public sealed class ServerEntry
         c.Attributes = Attributes.Select(a => a.Clone()).ToList();
         c.ScriptRuns = ScriptRuns.Select(r => r.Clone()).ToList();
         c.Firewall = Firewall?.Clone();
+        c.Tunnels = Tunnels.Select(t => t.Clone()).ToList();
         return c;
     }
+}
+
+public enum TunnelKind
+{
+    /// <summary>A local port to one host:port beyond the server (ssh -L, SSM port forwarding).</summary>
+    Local,
+    /// <summary>A SOCKS proxy on a local port (ssh -D).</summary>
+    Dynamic,
+}
+
+public enum TunnelVia
+{
+    /// <summary>An SSH connection (directly or through SSM) with SSH.NET's forwarded ports.</summary>
+    Ssh,
+    /// <summary>AWS SSM port forwarding, without SSH (Local only).</summary>
+    Ssm,
+}
+
+/// <summary>A port on this PC (loopback only) that leads through the server.</summary>
+public sealed class Tunnel
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    public TunnelKind Kind { get; set; } = TunnelKind.Local;
+    public TunnelVia Via { get; set; } = TunnelVia.Ssh;
+    public int LocalPort { get; set; }
+    /// <summary>Where the server connects to (Local): empty = the server itself.</summary>
+    public string? RemoteHost { get; set; }
+    public int RemotePort { get; set; }
+    /// <summary>Opened when the vault is unlocked.</summary>
+    public bool AutoStart { get; set; }
+
+    /// <summary>"5432 → 10.0.1.20:5432", "1080 → SOCKS".</summary>
+    public string Route => Kind == TunnelKind.Dynamic
+        ? $"{LocalPort} → SOCKS"
+        : $"{LocalPort} → {(string.IsNullOrWhiteSpace(RemoteHost) ? "localhost" : RemoteHost.Trim())}:{RemotePort}";
+
+    public Tunnel Clone() => (Tunnel)MemberwiseClone();
 }
 
 public sealed class ServerAttribute

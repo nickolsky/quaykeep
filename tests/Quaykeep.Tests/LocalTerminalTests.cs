@@ -1,10 +1,13 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using System.Text;
 using Quaykeep.Core.Models;
 using Quaykeep.Core.Terminal;
 
 namespace Quaykeep.Tests;
 
+/// <remarks>Windows-only API: every test that starts a console returns early elsewhere; the quoting is plain string work.</remarks>
+[SupportedOSPlatform("windows")]
 public class LocalTerminalTests
 {
     [Fact]

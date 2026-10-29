@@ -1,0 +1,52 @@
+<v:DialogWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.TunnelEditWindow"
+        Title="{l:Tr TunnelEdit.Title}" Width="520" SizeToContent="Height" MinWidth="440" CanResize="False">
+    <StackPanel Margin="24,16,24,20">
+        <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+        <TextBlock Classes="fieldLabel" Text="{l:Tr TunnelEdit.Kind}" />
+        <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="KindLocal" Content="{l:Tr TunnelEdit.Local}" GroupName="kind" IsCheckedChanged="OnChanged" Margin="0,0,24,0" />
+            <RadioButton x:Name="KindDynamic" Content="{l:Tr TunnelEdit.Dynamic}" GroupName="kind" IsCheckedChanged="OnChanged" />
+        </StackPanel>
+
+        <StackPanel x:Name="ViaPanel">
+            <TextBlock Classes="fieldLabel" Text="{l:Tr TunnelEdit.Via}" />
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="ViaSsh" Content="SSH" GroupName="via" IsCheckedChanged="OnChanged" Margin="0,0,24,0" />
+                <RadioButton x:Name="ViaSsm" Content="{l:Tr TunnelEdit.ViaSsm}" GroupName="via" IsCheckedChanged="OnChanged" />
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock Classes="fieldLabel" Text="{l:Tr TunnelEdit.LocalPort}" />
+        <TextBox x:Name="LocalPortBox" Width="110" HorizontalAlignment="Left" />
+
+        <StackPanel x:Name="RemotePanel">
+            <Grid ColumnDefinitions="*,12,110">
+                <StackPanel>
+                    <TextBlock Classes="fieldLabel" Text="{l:Tr TunnelEdit.RemoteHost}" />
+                    <TextBox x:Name="RemoteHostBox" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Classes="fieldLabel" Text="{l:Tr TunnelEdit.RemotePort}" />
+                    <TextBox x:Name="RemotePortBox" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <TextBlock Classes="fieldLabel" Text="{l:Tr TunnelEdit.Name}" />
+        <TextBox x:Name="NameBox" />
+
+        <CheckBox x:Name="AutoStartBox" Content="{l:Tr TunnelEdit.AutoStart}" Margin="0,12,0,0" />
+        <TextBlock x:Name="CommandHint" Classes="hint" TextWrapping="Wrap" Margin="0,10,0,0" FontFamily="{DynamicResource MonoFont}" />
+
+        <TextBlock x:Name="Error" Foreground="#E0443E" TextWrapping="Wrap" Margin="0,10,0,0" IsVisible="False" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="{l:Tr Common.Save}" IsDefault="True" Click="OnSave" Classes="accent" MinWidth="110" />
+            <Button Content="{l:Tr Common.Cancel}" IsCancel="True" Classes="dialog" />
+        </StackPanel>
+    </StackPanel>
+</v:DialogWindow>

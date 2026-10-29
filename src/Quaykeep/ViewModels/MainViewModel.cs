@@ -90,6 +90,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         AgentLogCommand = new RelayCommand(OpenAgentLog);
         SetMonitorIntervalCommand = new RelayCommand(p => SetMonitorInterval(p is int m ? m : null), _ => HasServer());
         PortForwardsCommand = new RelayCommand(OpenPortForwards, HasServer);
+        TunnelsCommand = new RelayCommand(OpenTunnels, HasServer);
         FirewallCommand = new RelayCommand(OpenFirewall, HasServer);
         NetworkMapCommand = new RelayCommand(OpenNetworkMap, () => _host.Vault.IsUnlocked);
         GroupFirewallCommand = new RelayCommand(OpenGroupFirewall, () => SelectedNode is GroupNode);
@@ -311,6 +312,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand SetMcpAccessCommand { get; }
     public ICommand AgentLogCommand { get; }
     public ICommand PortForwardsCommand { get; }
+    public ICommand TunnelsCommand { get; }
     public ICommand FirewallCommand { get; }
     public ICommand NetworkMapCommand { get; }
     public ICommand GroupFirewallCommand { get; }
@@ -887,6 +889,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var s = SelectedServer.Entry;
         if (!Confirm(L.F("Main.DeleteServerConfirm", s.Name, s.Display))) return;
         _expandedServers.Remove(s.Id);
+        foreach (var t in s.Tunnels) _host.Tunnels.Stop(t.Id);
         _host.Vault.Update(d => d.Servers.RemoveAll(x => x.Id == s.Id));
         _host.Uptime.Delete(s.Id);
     }
@@ -1145,6 +1148,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _mapWindow = new NetworkMapWindow(_host, this, select);
         _mapWindow.Closed += (_, _) => _mapWindow = null;
         ShowOwned(_mapWindow);
+    }
+
+    private void OpenTunnels()
+    {
+        if (SelectedServer?.Entry is not { } server) return;
+        var existing = OpenWindows<TunnelsWindow>().FirstOrDefault(w => w.ServerId == server.Id);
+        if (existing != null)
+        {
+            existing.Activate();
+            return;
+        }
+        ShowOwned(new TunnelsWindow(_host, server.Id));
     }
 
     private void OpenPortForwards()

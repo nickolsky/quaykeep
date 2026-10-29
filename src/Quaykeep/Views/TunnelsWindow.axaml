@@ -1,0 +1,52 @@
+<v:ToolWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
+        xmlns:l="using:Quaykeep.Localization"
+        x:Class="Quaykeep.Views.TunnelsWindow"
+        Width="760" Height="440" MinWidth="560" MinHeight="300" ShowInTaskbar="True">
+    <Grid Margin="20,14,20,18" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="1" Classes="hint" Text="{l:Tr Tunnels.Hint}" TextWrapping="Wrap" Margin="0,6,0,10" />
+
+        <DataGrid Grid.Row="2" x:Name="TunnelsGrid" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True"
+                  HeadersVisibility="Column" GridLinesVisibility="None" DoubleTapped="OnEdit" SelectionChanged="OnSelectionChanged">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="{l:Tr Tunnels.ColState}" Width="150">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0" ToolTip.Tip="{Binding Error}">
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource ControlStrongFillColorDisabledBrush}"
+                                         IsVisible="{Binding IsIdle}" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource SystemFillColorSuccessBrush}"
+                                         IsVisible="{Binding IsRunning}" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource SystemFillColorAttentionBrush}"
+                                         IsVisible="{Binding IsBusy}" />
+                                <Ellipse Width="8" Height="8" Fill="{DynamicResource SystemFillColorCriticalBrush}"
+                                         IsVisible="{Binding IsFailed}" />
+                                <TextBlock Text="{Binding StateText}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="{l:Tr Tunnels.ColName}" Binding="{Binding Name}" Width="*" />
+                <DataGridTextColumn Header="{l:Tr Tunnels.ColRoute}" Binding="{Binding Route}" Width="220" />
+                <DataGridTextColumn Header="{l:Tr Tunnels.ColVia}" Binding="{Binding Via}" Width="90" />
+                <DataGridTextColumn Header="{l:Tr Tunnels.ColAuto}" Binding="{Binding Auto}" Width="100" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <TextBlock x:Name="Error" Grid.Row="3" Foreground="#E0443E" TextWrapping="Wrap" Margin="0,8,0,0" IsVisible="False" />
+        <DockPanel Grid.Row="4" Margin="0,14,0,0">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8">
+                <Button Content="{l:Tr Tunnels.Add}" Click="OnAdd" Padding="12,5" />
+                <Button x:Name="EditButton" Content="{l:Tr Tunnels.Edit}" Click="OnEdit" Padding="12,5" />
+                <Button x:Name="RemoveButton" Content="{l:Tr Tunnels.Remove}" Click="OnRemove" Padding="12,5" />
+                <Button x:Name="CopyButton" Content="{l:Tr Tunnels.Copy}" Click="OnCopy" Padding="12,5" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="ToggleButton" Content="{l:Tr Tunnels.Start}" Click="OnToggle" Classes="accent" MinWidth="110" />
+                <Button Content="{l:Tr Common.Close}" Click="OnClose" Classes="dialog" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</v:ToolWindow>

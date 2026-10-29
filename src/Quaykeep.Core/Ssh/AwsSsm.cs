@@ -59,6 +59,30 @@ public static class AwsSsm
         return a;
     }
 
+    /// <summary>
+    /// SSM port forwarding without SSH: <paramref name="localPort"/> on this PC to <paramref name="remotePort"/> on the
+    /// instance, or on <paramref name="remoteHost"/> as the instance reaches it.
+    /// </summary>
+    public static List<string> PortForwardArgs(ServerEntry server, string? remoteHost, int remotePort, int localPort)
+    {
+        var p = new JsonObject
+        {
+            ["portNumber"] = new JsonArray(remotePort.ToString()),
+            ["localPortNumber"] = new JsonArray(localPort.ToString()),
+        };
+        var document = "AWS-StartPortForwardingSession";
+        if (!string.IsNullOrWhiteSpace(remoteHost))
+        {
+            p["host"] = new JsonArray(remoteHost.Trim());
+            document = "AWS-StartPortForwardingSessionToRemoteHost";
+        }
+        return WithProfile(server, ["ssm", "start-session", "--target", server.Host.Trim(), "--document-name", document,
+            "--parameters", p.ToJsonString()]);
+    }
+
+    public static ProcessStartInfo PortForwardStartInfo(ServerEntry server, string? remoteHost, int remotePort, int localPort) =>
+        Cli(PortForwardArgs(server, remoteHost, remotePort, localPort));
+
     public static string ShellCommandLine(ServerEntry server, string cli) =>
         string.Join(' ', new[] { cli }.Concat(ShellArgs(server)).Select(QuoteArg));
 

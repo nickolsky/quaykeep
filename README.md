@@ -155,6 +155,15 @@ On first start the program asks you to choose a master password and offers to st
   (`443 → another server:443`, tcp/udp, ranges): DNAT + MASQUERADE + FORWARD, `ip_forward`, saved with
   netfilter-persistent / iptables-save (offers to install iptables-persistent when needed).
   Forwards are shown in the main tree, both outgoing and incoming.
+- **Tunnels** ("Tunnels…" in the server menu): ports on **this PC** that lead through the server, kept per server.
+  - **Port → address** (`ssh -N -L 5432:10.0.1.20:5432`), a **SOCKS proxy** (`ssh -N -D 1080`, SOCKS4/5), and for AWS SSM
+    servers **SSM port forwarding** without SSH (`AWS-StartPortForwardingSession`, or `…ToRemoteHost` for a host
+    beyond the instance), which also works for an "AWS SSM shell only" server.
+  - SSH tunnels go over Quaykeep's own SSH connection, also through SSM, so no `ssh` command or `ProxyCommand` is needed.
+  - They listen on 127.0.0.1 only and run while Quaykeep runs (also while the vault is locked). A dropped tunnel
+    reconnects with growing pauses, up to a minute. A busy port, an untrusted host key or an expired SSO sign-in stops
+    it with the reason. "Start with Quaykeep" opens a tunnel on every unlock. The editor shows the equivalent `ssh` /
+    `aws` command, and "Copy address" gives `127.0.0.1:5432` or `socks5://127.0.0.1:1080`.
 - **Firewall** ("Firewall…" in the server menu, "Firewall for the group…" in a group's menu): **block** chosen IPs and
   networks, or **allow only** them, for ports (tcp/udp, lists, ranges) or for the whole server; IPv4 and IPv6.
   - **Where it covers:** ports published by Docker containers and port forwards are covered too, so Docker's usual way

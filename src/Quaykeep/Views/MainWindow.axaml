@@ -368,6 +368,8 @@
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=forward}" />
                                     <MenuItem Header="{l:Tr Ctx.PortForwards}" Command="{Binding PortForwardsCommand}"
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.OneOf}, ConverterParameter=server|forward}" />
+                                    <MenuItem Header="{l:Tr Ctx.Tunnels}" Command="{Binding TunnelsCommand}" ToolTip.Tip="{l:Tr Ctx.TunnelsTip}"
+                                              IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=server}" />
                                     <MenuItem Header="{l:Tr Ctx.Firewall}" Command="{Binding FirewallCommand}"
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.OneOf}, ConverterParameter=server|firewall}" />
                                     <MenuItem Header="{l:Tr Ctx.NetworkMap}" Command="{Binding NetworkMapCommand}"
