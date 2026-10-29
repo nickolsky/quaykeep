@@ -118,7 +118,8 @@ public static class AwsSsm
     /// </summary>
     public static async Task<(string Output, string Errors)> RunAsync(ServerEntry server, string script, TimeSpan timeout)
     {
-        var psi = Cli(CommandArgs(server, "sh -c " + RemoteShell.Quote(script)));
+        // a CR would reach sh as part of every line (a checkout with CRLF puts them into raw strings), as in RemoteShell.Run
+        var psi = Cli(CommandArgs(server, "sh -c " + RemoteShell.Quote(script.Replace("\r\n", "\n"))));
         psi.RedirectStandardOutput = psi.RedirectStandardError = true;
         psi.RedirectStandardInput = true;
         using var p = Process.Start(psi) ?? throw new InvalidOperationException(psi.FileName);
@@ -143,7 +144,7 @@ public static class AwsSsm
     /// creating ~/.ssh with the user's ownership. Prints SSHM_OK, or SSHM_NOUSER when there is no such user.
     /// </summary>
     public static string InstallKeyScript(string user, string publicKey) =>
-        $"u={RemoteShell.Quote(user)}; pub={RemoteShell.Quote(publicKey)}\n" + InstallKeyBody;
+        $"u={RemoteShell.Quote(user)}; pub={RemoteShell.Quote(publicKey)}\n" + InstallKeyBody.ReplaceLineEndings("\n");
 
     private const string InstallKeyBody = """
         h=$(getent passwd "$u" | cut -d: -f6)
