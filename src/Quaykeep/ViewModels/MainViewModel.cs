@@ -75,6 +75,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         DeleteServerCommand = new RelayCommand(DeleteServer, HasServer);
         CopyToClipboardCommand = new RelayCommand(p => CopyToClipboard(p as CopyTarget), _ => SelectedServer != null);
         PingCommand = new RelayCommand(OpenPing, () => SelectedServer != null);
+        AwsSignInCommand = new RelayCommand(AwsSignIn, () => SelectedServer?.Entry.Ssm == true);
         TraceCommand = new RelayCommand(OpenTrace, () => SelectedServer != null);
         WhoisCommand = new RelayCommand(OpenWhois, () => SelectedServer != null);
         FindPanelCommand = new RelayCommand(FindPanel, () => HosterSearch.Query(SelectedServer?.Entry.Facts) != null);
@@ -185,6 +186,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (!Set(ref _selectedNode, value)) return;
             OnPropertyChanged(nameof(SelectedServer));
             OnPropertyChanged(nameof(SelectionKind));
+            OnPropertyChanged(nameof(SelectedIsSsm));
             OnPropertyChanged(nameof(SelectedAttributeHasQr));
             OnPropertyChanged(nameof(SelectedCronKind));
             OnPropertyChanged(nameof(ForwardPeerHeader));
@@ -199,6 +201,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     public ServerNode? SelectedServer => _selectedNode?.Server;
+
+    /// <summary>A server reached through AWS SSM is selected (its menu offers the AWS sign-in).</summary>
+    public bool SelectedIsSsm => _selectedNode is ServerNode { Entry.Ssm: true };
 
     /// <summary>The selected script result is a link (VPN, site, Amnezia key) that can be shown as a QR code.</summary>
     public bool SelectedAttributeHasQr => _selectedNode is AttributeNode a && QrPayloads.CanShow(a.Attribute.Value);
@@ -288,6 +293,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand DeleteServerCommand { get; }
     public ICommand CopyToClipboardCommand { get; }
     public ICommand PingCommand { get; }
+    public ICommand AwsSignInCommand { get; }
     public ICommand TraceCommand { get; }
     public ICommand WhoisCommand { get; }
     public ICommand FindPanelCommand { get; }
@@ -1053,6 +1059,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
         ShowOwned(new PingWindow(_host, server.Clone()));
+    }
+
+    /// <summary>"aws sso login" for an SSM server's profile; the CLI opens the browser, the result comes as a notice.</summary>
+    private async void AwsSignIn()
+    {
+        if (SelectedServer?.Entry is not { } server) return;
+        var title = L.Get("Ctx.AwsSignIn");
+        try
+        {
+            _host.Notify(title, L.Get("Ssm.SigningIn"));
+            var error = await AwsSsm.SsoLoginAsync(server.Clone(), TimeSpan.FromMinutes(5));
+            _host.Notify(title, error == null ? L.Get("Ssm.SignedIn") : L.F("Ssm.SignInFailed", error));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            Warn(title, ex.Message);
+        }
     }
 
     private void SetupKey()

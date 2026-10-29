@@ -54,10 +54,31 @@
             <TextBlock Classes="hint" Margin="0,4,0,0" Text="{l:Tr Editor.KeyHint}" />
         </StackPanel>
 
-        <Expander Header="{l:Tr Editor.Advanced}" Margin="0,14,0,0" HorizontalAlignment="Stretch">
+        <Expander x:Name="AdvancedExpander" Header="{l:Tr Editor.Advanced}" Margin="0,14,0,0" HorizontalAlignment="Stretch">
             <StackPanel>
-                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Jump}" />
-                <TextBox x:Name="JumpBox" />
+                <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Route}" />
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="RouteDirect" Content="{l:Tr Editor.RouteDirect}" GroupName="route" IsCheckedChanged="OnRouteChanged" Margin="0,0,24,0" />
+                    <RadioButton x:Name="RouteJump" Content="{l:Tr Editor.RouteJump}" GroupName="route" IsCheckedChanged="OnRouteChanged" Margin="0,0,24,0" />
+                    <RadioButton x:Name="RouteSsm" Content="{l:Tr Editor.RouteSsm}" GroupName="route" IsCheckedChanged="OnRouteChanged" />
+                </StackPanel>
+                <StackPanel x:Name="JumpPanel">
+                    <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Jump}" />
+                    <TextBox x:Name="JumpBox" />
+                </StackPanel>
+                <StackPanel x:Name="SsmPanel">
+                    <Grid ColumnDefinitions="*,12,*">
+                        <StackPanel>
+                            <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.SsmProfile}" />
+                            <TextBox x:Name="SsmProfileBox" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.SsmRegion}" />
+                            <TextBox x:Name="SsmRegionBox" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="SsmHint" Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap" />
+                </StackPanel>
                 <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.ExtraArgs}" />
                 <TextBox x:Name="ExtraBox" />
                 <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Monitor}" />

@@ -29,6 +29,7 @@
     <a href="#linux">· Linux</a>
     <a href="#first">Первый запуск</a>
     <a href="#connect">Подключение</a>
+    <a href="#ssm">· AWS SSM</a>
     <a href="#agent">SSH-агент</a>
     <a href="#qk">Команда qk</a>
     <a href="#mcp">ИИ-агенты (MCP)</a>
@@ -103,6 +104,20 @@
     </ul>
     <p>Серверы с jump-хостом или дополнительными параметрами ssh всегда открываются во внешнем терминале (им нужен OpenSSH).
       Пароль передаётся ssh через <code>SSH_ASKPASS</code>, ключ — через агент: ни то ни другое не попадает в командную строку и на диск.</p>
+
+    <h3 id="ssm">AWS SSM</h3>
+    <p>Для инстансов EC2 без открытого порта SSH: в редакторе сервера <b>Дополнительно → Подключение → Через AWS SSM</b>, в адрес —
+      ID инстанса (<code>i-0123…</code>), при необходимости профиль AWS CLI и регион. Вход остаётся обычным, по SSH с ключом или
+      паролем; Session Manager только передаёт соединение (документ <code>AWS-StartSSHSession</code>), поэтому встроенный
+      терминал, файлы, скрипты и мониторинг работают как обычно.</p>
+    <ul>
+      <li>Установите <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI v2</a> и
+        <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html">Session Manager plugin</a>.</li>
+      <li>На инстансе должен быть запущен агент SSM и sshd; вашей роли AWS нужно право <code>ssm:StartSession</code> на
+        <code>AWS-StartSSHSession</code>.</li>
+      <li>С AWS SSO, когда вход истёк, выберите <b>Войти в AWS (SSO)</b> в меню сервера (запускается
+        <code>aws sso login</code>, открывается браузер).</li>
+    </ul>
 
     <h2 id="agent">SSH-агент</h2>
     <p>Пока Quaykeep работает, его агент отдаёт ключи из хранилища программам <code>ssh</code>, <code>git</code>, VS Code

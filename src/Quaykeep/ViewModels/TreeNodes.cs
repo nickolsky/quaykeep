@@ -227,7 +227,7 @@ public sealed class ServerNode : TreeNode
         HealthState.Offline => L.F("Health.OfflineTip", Health.Checked?.ToString("T", L.Culture), Health.Error),
         HealthState.Checking => L.Get("Health.Checking"),
         HealthState.Disabled => L.Get("Health.Disabled"),
-        HealthState.NotChecked => L.Get("Health.JumpHost"),
+        HealthState.NotChecked => L.Get(Entry.Ssm ? "Health.Ssm" : "Health.JumpHost"),
         _ => L.Get("Health.Unknown"),
     };
 

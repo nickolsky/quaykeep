@@ -42,6 +42,13 @@ public partial class ServerEditorWindow : DialogWindow
         UserBox.Text = server.Username;
         PasswordBox.Text = server.Password ?? "";
         JumpBox.Text = server.JumpHost ?? "";
+        SsmProfileBox.Text = server.SsmProfile ?? "";
+        SsmRegionBox.Text = server.SsmRegion ?? "";
+        SsmHint.Text = Core.Ssh.AwsSsm.FindCli() == null ? L.Get("Ssm.NoCli") : L.Get("Editor.SsmHint");
+        if (server.Ssm) RouteSsm.IsChecked = true;
+        else if (!string.IsNullOrWhiteSpace(server.JumpHost)) RouteJump.IsChecked = true;
+        else RouteDirect.IsChecked = true;
+        AdvancedExpander.IsExpanded = RouteDirect.IsChecked != true;
         ExtraBox.Text = server.ExtraArgs ?? "";
         NotesBox.Text = server.Notes ?? "";
         ReloadKeys(server.KeyId);
@@ -59,6 +66,12 @@ public partial class ServerEditorWindow : DialogWindow
     }
 
     private void OnAuthChanged(object? sender, RoutedEventArgs e) => KeyPanel.IsVisible = AuthKey.IsChecked == true;
+
+    private void OnRouteChanged(object? sender, RoutedEventArgs e)
+    {
+        JumpPanel.IsVisible = RouteJump.IsChecked == true;
+        SsmPanel.IsVisible = RouteSsm.IsChecked == true;
+    }
 
     // ---------- AI agent access (MCP) ----------
 
@@ -164,7 +177,10 @@ public partial class ServerEditorWindow : DialogWindow
         _server.Auth = auth;
         _server.Password = string.IsNullOrEmpty(password) ? null : password;
         _server.KeyId = key?.Id ?? (auth == AuthMode.Password ? _server.KeyId : null);
-        _server.JumpHost = NullIfEmpty(JumpBox.Text);
+        _server.JumpHost = RouteJump.IsChecked == true ? NullIfEmpty(JumpBox.Text) : null;
+        _server.Ssm = RouteSsm.IsChecked == true;
+        _server.SsmProfile = NullIfEmpty(SsmProfileBox.Text);
+        _server.SsmRegion = NullIfEmpty(SsmRegionBox.Text);
         _server.ExtraArgs = NullIfEmpty(ExtraBox.Text);
         _server.Notes = NullIfEmpty(NotesBox.Text);
         DialogResult = true;

@@ -102,6 +102,11 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
         };
         if (s.ServerAliveInterval > 0) args.AddRange(["-o", $"ServerAliveInterval={s.ServerAliveInterval}"]);
         if (!string.IsNullOrWhiteSpace(server.JumpHost)) args.AddRange(["-J", server.JumpHost.Trim()]);
+        if (server.Ssm)
+        {
+            var cli = AwsSsm.FindCli() ?? throw new InvalidOperationException(L.Get("Ssm.NoCli"));
+            args.AddRange(["-o", "ProxyCommand=" + AwsSsm.ProxyCommand(server, cli)]);
+        }
 
         var env = new Dictionary<string, string>();
         if (agent.PipePath != null) env["SSH_AUTH_SOCK"] = agent.PipePath;
@@ -237,6 +242,7 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
         var parts = new List<string> { "ssh" };
         if (server.Port != 22) parts.AddRange(["-p", server.Port.ToString()]);
         if (!string.IsNullOrWhiteSpace(server.JumpHost)) parts.AddRange(["-J", server.JumpHost.Trim()]);
+        if (server.Ssm) parts.AddRange(["-o", RemoteShell.Quote("ProxyCommand=" + AwsSsm.ProxyCommand(server, "aws"))]);
         if (!string.IsNullOrWhiteSpace(server.ExtraArgs)) parts.Add(server.ExtraArgs.Trim());
         parts.Add($"{server.Username}@{server.Host}");
         return string.Join(' ', parts);

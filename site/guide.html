@@ -29,6 +29,7 @@
     <a href="#linux">· Linux</a>
     <a href="#first">First start</a>
     <a href="#connect">Connecting</a>
+    <a href="#ssm">· AWS SSM</a>
     <a href="#agent">SSH agent</a>
     <a href="#qk">The qk command</a>
     <a href="#mcp">AI agents (MCP)</a>
@@ -104,6 +105,20 @@
     </ul>
     <p>Servers with a jump host or extra ssh arguments always open in the external terminal (they need OpenSSH).
       Passwords are passed to ssh through <code>SSH_ASKPASS</code> and keys through the agent: neither appears on a command line or on disk.</p>
+
+    <h3 id="ssm">AWS SSM</h3>
+    <p>For EC2 instances without an open SSH port: in the server's editor, <b>Advanced → Connect → Through AWS SSM</b>, put the
+      instance ID (<code>i-0123…</code>) as the host and, if needed, the AWS CLI profile and region. The login is still
+      ordinary SSH with a key or password; Session Manager only carries the connection (the <code>AWS-StartSSHSession</code>
+      document), so the built-in terminal, files, scripts and monitoring work as usual.</p>
+    <ul>
+      <li>Install <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI v2</a> and the
+        <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html">Session Manager plugin</a>.</li>
+      <li>The instance needs the SSM agent online and sshd running; your AWS role needs <code>ssm:StartSession</code> on
+        <code>AWS-StartSSHSession</code>.</li>
+      <li>With AWS SSO, when the sign-in expires, use <b>Sign in to AWS (SSO)</b> in the server's menu (it runs
+        <code>aws sso login</code> and opens the browser).</li>
+    </ul>
 
     <h2 id="agent">SSH agent</h2>
     <p>While Quaykeep runs, its agent hands the vault's keys to <code>ssh</code>, <code>git</code>, VS Code Remote-SSH and

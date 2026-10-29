@@ -52,7 +52,8 @@ public sealed class GeoIpService(VaultService vault, SettingsService settings)
 
     private async Task RunAsync(Guid id, bool force)
     {
-        if (!vault.TryRead(d => d.Servers.FirstOrDefault(s => s.Id == id) is { } s ? (s.Host, s.Facts?.Geo, s.Facts?.Whois) : default,
+        // an SSM target is an instance id, not an address
+        if (!vault.TryRead(d => d.Servers.FirstOrDefault(s => s.Id == id && !s.Ssm) is { } s ? (s.Host, s.Facts?.Geo, s.Facts?.Whois) : default,
                 out var info) || info.Host == null)
             return;
         var ip = await ResolveAsync(info.Host);

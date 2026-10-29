@@ -33,6 +33,12 @@ public sealed class ServerEntry
     public string? Password { get; set; }
     public Guid? KeyId { get; set; }
     public string? JumpHost { get; set; }
+    /// <summary>SSH goes through AWS Systems Manager (AWS-StartSSHSession); <see cref="Host"/> is then the instance id.</summary>
+    public bool Ssm { get; set; }
+    /// <summary>AWS CLI profile for <see cref="Ssm"/> (null = the CLI's default).</summary>
+    public string? SsmProfile { get; set; }
+    /// <summary>AWS region for <see cref="Ssm"/> (null = the profile's).</summary>
+    public string? SsmRegion { get; set; }
     public string? ExtraArgs { get; set; }
     public string? Notes { get; set; }
     public DateTime? LastConnected { get; set; }
@@ -54,6 +60,9 @@ public sealed class ServerEntry
     public FirewallConfig? Firewall { get; set; }
 
     public string Display => $"{Username}@{Host}" + (Port != 22 ? $":{Port}" : "");
+
+    /// <summary>This PC can open TCP to <see cref="Host"/> (ping, port checks, GeoIP); not behind a jump host or SSM.</summary>
+    public bool ReachableDirectly => string.IsNullOrWhiteSpace(JumpHost) && !Ssm;
 
     public ServerEntry Clone()
     {

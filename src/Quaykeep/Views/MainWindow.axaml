@@ -353,6 +353,8 @@
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=server}" />
                                     <MenuItem Header="{l:Tr Ctx.Edit}" Command="{Binding EditServerCommand}"
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=server}" />
+                                    <MenuItem Header="{l:Tr Ctx.AwsSignIn}" Command="{Binding AwsSignInCommand}" ToolTip.Tip="{l:Tr Ctx.AwsSignInTip}"
+                                              IsVisible="{Binding SelectedIsSsm}" />
                                     <MenuItem Header="{l:Tr Ctx.Copy}" Classes="entries" ItemsSource="{Binding CopyItems}"
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=server}" />
                                     <MenuItem Header="{l:Tr Ctx.Duplicate}" Command="{Binding DuplicateServerCommand}"

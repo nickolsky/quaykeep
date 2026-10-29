@@ -19,7 +19,8 @@ public static class CopyTargets
     /// <param name="ports">Monitored port states from the health monitor.</param>
     public static IReadOnlyList<CopyTarget> For(ServerEntry server, bool hasKey, IReadOnlyDictionary<int, ServerHealth> ports)
     {
-        var list = new List<CopyTarget> { new(CopyKind.HostName), new(CopyKind.Ip) };
+        // an SSM target is an instance id: no DNS name or address of its own
+        var list = server.Ssm ? [] : new List<CopyTarget> { new(CopyKind.HostName), new(CopyKind.Ip) };
         if (!string.IsNullOrEmpty(server.Password)) list.Add(new(CopyKind.Password));
         if (hasKey) list.Add(new(CopyKind.PublicKey));
         list.Add(new(CopyKind.SshCommand));

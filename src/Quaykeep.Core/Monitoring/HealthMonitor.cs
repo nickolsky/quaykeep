@@ -126,7 +126,7 @@ public sealed class HealthMonitor : IDisposable
     private async Task CheckAsync(ServerEntry s, bool force)
     {
         var interval = IntervalFor(s);
-        if (!string.IsNullOrWhiteSpace(s.JumpHost))
+        if (!s.ReachableDirectly)
         {
             Set(s.Id, new ServerHealth(HealthState.NotChecked));
             _due[s.Id] = DateTime.MaxValue;

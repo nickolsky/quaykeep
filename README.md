@@ -73,6 +73,12 @@ On first start the program asks you to choose a master password and offers to st
 ## Features
 
 - **Servers**: name, group, host/IP, port, user, password or key, jump host, extra ssh arguments, notes.
+- **AWS SSM** (server → Advanced → Connect: Through AWS SSM): EC2 instances without an open SSH port. The host is the
+  instance ID (`i-0123…`), plus an AWS CLI profile and region if needed. The login stays ordinary SSH (key or password);
+  Session Manager only carries the connection (`AWS-StartSSHSession`, as `ssh -o ProxyCommand="aws ssm start-session …"`),
+  so the terminal, files, scripts, monitoring and agents all work. Needs AWS CLI v2, the Session Manager plugin, sshd on
+  the instance and `ssm:StartSession` on that document. When the SSO sign-in expires, **Sign in to AWS (SSO)** in the
+  server menu runs `aws sso login`. Ping, availability checks and GeoIP are skipped: this PC has no direct route.
   A tree with nested groups (`VPN/Europe`) that collapse and are remembered; search (Ctrl+F), including
   by OS, region and containers; double click / Enter connects, Ctrl+N adds a server, F5 refreshes everything.
 - **Server menu** (right click), grouped: connect, edit, copy, duplicate → install, port forwards, keys, AI agents →

@@ -25,7 +25,8 @@ public partial class PingWindow : ToolWindow
         _server = server;
         Title = L.F("Ping.Title", server.Name);
         Header.Text = $"{server.Name}  ({server.Host})";
-        JumpNote.IsVisible = !string.IsNullOrWhiteSpace(server.JumpHost);
+        JumpNote.IsVisible = !server.ReachableDirectly;
+        if (server.Ssm) JumpNote.Text = L.Get("Ping.Ssm");
         ShowStats();
         Opened += (_, _) => Start();
         Closing += OnClosing;
@@ -92,7 +93,7 @@ public partial class PingWindow : ToolWindow
         {
             HealthState.Online => L.F("Health.OnlineTip", h.LatencyMs, h.Checked?.ToString("T", L.Culture)),
             HealthState.Offline => L.F("Health.OfflineTip", h.Checked?.ToString("T", L.Culture), h.Error).Replace('\n', ' '),
-            HealthState.NotChecked => L.Get("Health.JumpHost"),
+            HealthState.NotChecked => L.Get(_server.Ssm ? "Health.Ssm" : "Health.JumpHost"),
             HealthState.Disabled => L.Get("Health.Disabled"),
             _ => L.Get("Health.Unknown"),
         };

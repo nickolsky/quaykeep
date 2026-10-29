@@ -1,3 +1,4 @@
+using System.Net;
 using Renci.SshNet;
 using Quaykeep.Core.Crypto;
 using Quaykeep.Core.Models;
@@ -54,7 +55,11 @@ public sealed class SshClientFactory(VaultService vault, KnownHostsService known
             methods = [new PasswordAuthenticationMethod(server.Username, password), kbd];
         }
 
-        var info = new ConnectionInfo(server.Host, server.Port, server.Username, methods) { Timeout = Timeout };
+        // SSM: SSH.NET talks to a loopback relay into "aws ssm start-session"; the host key still belongs to server.Host
+        var tunnel = server.Ssm ? new SsmTunnel(AwsSsm.StartInfo(server)) : null;
+        var info = tunnel != null
+            ? new ConnectionInfo(IPAddress.Loopback.ToString(), tunnel.Port, server.Username, methods) { Timeout = Timeout }
+            : new ConnectionInfo(server.Host, server.Port, server.Username, methods) { Timeout = Timeout };
         var client = create(info);
         var rejected = false;
         client.HostKeyReceived += (_, e) =>
@@ -84,7 +89,17 @@ public sealed class SshClientFactory(VaultService vault, KnownHostsService known
         catch (Exception) when (rejected)
         {
             client.Dispose();
+            tunnel?.Dispose();
             throw new HostKeyNotTrustedException(KnownHostsService.HostPattern(server.Host, server.Port));
+        }
+        catch (Exception e) when (tunnel != null)
+        {
+            client.Dispose();
+            // the CLI's own words (an expired SSO sign-in, no plugin) say more than SSH.NET's "connection closed"
+            var why = AwsSsm.Explain(tunnel.WaitErrors(TimeSpan.FromSeconds(3)), server);
+            tunnel.Dispose();
+            if (why == null) throw;
+            throw new InvalidOperationException(why, e);
         }
         catch
         {
