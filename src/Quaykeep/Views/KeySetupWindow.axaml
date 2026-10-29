@@ -7,11 +7,17 @@
     <Grid Margin="24,16,24,20" RowDefinitions="Auto,Auto,*,Auto,Auto">
         <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
         <StackPanel Grid.Row="1" Margin="0,10,0,10">
-            <TextBlock Classes="hint" Text="{l:Tr KeySetup.Hint}" />
+            <TextBlock x:Name="HintText" Classes="hint" Text="{l:Tr KeySetup.Hint}" TextWrapping="Wrap" />
+            <StackPanel x:Name="UserPanel" IsVisible="False">
+                <TextBlock Classes="fieldLabel" Text="{l:Tr KeySetup.User}" />
+                <TextBox x:Name="UserBox" />
+            </StackPanel>
             <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Key}" />
             <ComboBox x:Name="KeyBox" DisplayMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" />
-            <CheckBox x:Name="DisablePasswordBox" Content="{l:Tr KeySetup.DisablePassword}" Margin="0,12,0,0" />
-            <TextBlock Classes="hint" Text="{l:Tr KeySetup.DisablePasswordHint}" Margin="22,4,0,0" />
+            <StackPanel x:Name="PasswordOffPanel">
+                <CheckBox x:Name="DisablePasswordBox" Content="{l:Tr KeySetup.DisablePassword}" Margin="0,12,0,0" />
+                <TextBlock Classes="hint" Text="{l:Tr KeySetup.DisablePasswordHint}" Margin="22,4,0,0" />
+            </StackPanel>
         </StackPanel>
         <TextBox x:Name="Log" Grid.Row="2" IsReadOnly="True" TextWrapping="Wrap" Classes="mono" AcceptsReturn="True"
                  VerticalContentAlignment="Top" ScrollViewer.VerticalScrollBarVisibility="Auto" />

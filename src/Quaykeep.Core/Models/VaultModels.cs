@@ -4,6 +4,8 @@ public enum AuthMode
 {
     Password,
     Key,
+    /// <summary>No SSH login: only the plain AWS SSM shell (<see cref="ServerEntry.Ssm"/>) until a key is set up.</summary>
+    None,
 }
 
 /// <summary>What an AI agent connected over MCP may do with a server. Each level includes the ones before it.</summary>
@@ -63,6 +65,9 @@ public sealed class ServerEntry
 
     /// <summary>This PC can open TCP to <see cref="Host"/> (ping, port checks, GeoIP); not behind a jump host or SSM.</summary>
     public bool ReachableDirectly => string.IsNullOrWhiteSpace(JumpHost) && !Ssm;
+
+    /// <summary>The server has an SSH login; without one (an SSM shell only) every SSH.NET feature is off.</summary>
+    public bool SshLogin => Auth != AuthMode.None;
 
     public ServerEntry Clone()
     {

@@ -34,7 +34,8 @@
         <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.Auth}" />
         <StackPanel Orientation="Horizontal">
             <RadioButton x:Name="AuthPassword" Content="{l:Tr Auth.Password}" GroupName="auth" IsCheckedChanged="OnAuthChanged" Margin="0,0,24,0" />
-            <RadioButton x:Name="AuthKey" Content="{l:Tr Editor.SshKey}" GroupName="auth" IsCheckedChanged="OnAuthChanged" />
+            <RadioButton x:Name="AuthKey" Content="{l:Tr Editor.SshKey}" GroupName="auth" IsCheckedChanged="OnAuthChanged" Margin="0,0,24,0" />
+            <RadioButton x:Name="AuthSsmShell" Content="{l:Tr Auth.SsmShell}" GroupName="auth" IsCheckedChanged="OnAuthChanged" IsVisible="False" />
         </StackPanel>
 
         <StackPanel x:Name="PasswordPanel">
@@ -78,6 +79,7 @@
                         </StackPanel>
                     </Grid>
                     <TextBlock x:Name="SsmHint" Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <TextBlock Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap" Text="{l:Tr Editor.SsmShellHint}" />
                 </StackPanel>
                 <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.ExtraArgs}" />
                 <TextBox x:Name="ExtraBox" />

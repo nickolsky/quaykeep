@@ -79,7 +79,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         TraceCommand = new RelayCommand(OpenTrace, () => SelectedServer != null);
         WhoisCommand = new RelayCommand(OpenWhois, () => SelectedServer != null);
         FindPanelCommand = new RelayCommand(FindPanel, () => HosterSearch.Query(SelectedServer?.Entry.Facts) != null);
-        SetupKeyCommand = new RelayCommand(SetupKey, () => HasServer() && !string.IsNullOrEmpty(SelectedServer!.Entry.Password));
+        // over the saved password, or for an SSM shell through AWS
+        SetupKeyCommand = new RelayCommand(SetupKey, () => HasServer() &&
+            (!string.IsNullOrEmpty(SelectedServer!.Entry.Password) || !SelectedServer.Entry.SshLogin));
         TestCommand = new RelayCommand(Test, HasServer);
         RefreshInfoCommand = new RelayCommand(() => _host.RefreshServer(SelectedServer!.Entry.Id), HasServer);
         CheckNowCommand = new RelayCommand(() => _host.Health.CheckNow(SelectedServer!.Entry.Id), HasServer);

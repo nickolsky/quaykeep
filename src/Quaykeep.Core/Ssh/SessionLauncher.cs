@@ -94,6 +94,7 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
     /// <param name="remoteCommand">Command to run instead of a login shell (gets a TTY via -t).</param>
     public LaunchSpec BuildSpec(ServerEntry server, bool pauseOnError, string? remoteCommand = null, string? title = null)
     {
+        if (!server.SshLogin) return SsmShellSpec(server, pauseOnError, remoteCommand, title);
         var s = settings.Settings;
         var args = new List<string>
         {
@@ -147,6 +148,27 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
             Title = title == null ? name : $"{name}: {title}",
             PauseOnError = pauseOnError,
             PauseAlways = remoteCommand != null,
+        };
+    }
+
+    /// <summary>
+    /// The plain "aws ssm start-session" shell of a server without SSH login: no ssh, no keys, nothing left on the server.
+    /// Commands need an SSH login, so <paramref name="remoteCommand"/> is refused.
+    /// </summary>
+    private static LaunchSpec SsmShellSpec(ServerEntry server, bool pauseOnError, string? remoteCommand, string? title)
+    {
+        if (remoteCommand != null) throw new InvalidOperationException(L.Get("Ssm.ShellOnly"));
+        var psi = AwsSsm.ShellStartInfo(server);
+        var name = string.IsNullOrWhiteSpace(server.Name) ? server.Host : server.Name;
+        return new LaunchSpec
+        {
+            SshPath = psi.FileName,
+            Args = [.. psi.ArgumentList],
+            Env = psi.Environment.TryGetValue("PATH", out var path) && path != Environment.GetEnvironmentVariable("PATH")
+                ? new Dictionary<string, string> { ["PATH"] = path! }
+                : [],
+            Title = title == null ? name : $"{name}: {title}",
+            PauseOnError = pauseOnError,
         };
     }
 
@@ -239,6 +261,7 @@ public sealed class SessionLauncher(VaultService vault, SettingsService settings
     /// <summary>Plain command for copy/paste (no secrets).</summary>
     public string CommandLine(ServerEntry server)
     {
+        if (!server.SshLogin) return AwsSsm.ShellCommandLine(server, "aws");
         var parts = new List<string> { "ssh" };
         if (server.Port != 22) parts.AddRange(["-p", server.Port.ToString()]);
         if (!string.IsNullOrWhiteSpace(server.JumpHost)) parts.AddRange(["-J", server.JumpHost.Trim()]);

@@ -33,6 +33,37 @@ public class AwsSsmTests
     }
 
     [Fact]
+    public void Shell_Only_Opens_The_Plain_Session_And_Turns_Ssh_Features_Off()
+    {
+        var s = Instance("396517496207_AWSAdministratorAccess");
+        s.Auth = AuthMode.None;
+        Assert.False(s.SshLogin);
+        Assert.False(Quaykeep.Core.Inventory.ServerInventoryService.Supported(s));
+        Assert.Equal(["ssm", "start-session", "--target", "i-0cac78034f134d1fc", "--profile", "396517496207_AWSAdministratorAccess"],
+            AwsSsm.ShellArgs(s));
+        Assert.Equal("aws ssm start-session --target i-0cac78034f134d1fc --profile 396517496207_AWSAdministratorAccess",
+            AwsSsm.ShellCommandLine(s, "aws"));
+        s.Auth = AuthMode.Key;
+        Assert.True(Quaykeep.Core.Inventory.ServerInventoryService.Supported(s));
+    }
+
+    [Fact]
+    public void Commands_Go_As_Json_And_The_Key_Script_Quotes_Its_Values()
+    {
+        var args = AwsSsm.CommandArgs(Instance(region: "eu-west-1"), "sh -c 'echo a,b'");
+        Assert.Equal(["ssm", "start-session", "--target", "i-0cac78034f134d1fc", "--document-name", "AWS-StartNonInteractiveCommand",
+            "--parameters"], args[..7]);
+        Assert.Equal("sh -c 'echo a,b'", (string?)System.Text.Json.Nodes.JsonNode.Parse(args[7])!["command"]![0]);
+        Assert.Equal(["--region", "eu-west-1"], args[8..]);
+
+        var script = AwsSsm.InstallKeyScript("ubuntu", "ssh-ed25519 AAAA test@host");
+        Assert.StartsWith("u='ubuntu'; pub='ssh-ed25519 AAAA test@host'\n", script);
+        Assert.Contains("sudo -n", script);
+        Assert.EndsWith("echo SSHM_OK", script.TrimEnd());
+        Assert.DoesNotContain('\r', script);
+    }
+
+    [Fact]
     public void Cli_Errors_Are_Explained()
     {
         var s = Instance("prod");

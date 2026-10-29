@@ -115,6 +115,10 @@
         <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html">Session Manager plugin</a>.</li>
       <li>На инстансе должен быть запущен агент SSM и sshd; вашей роли AWS нужно право <code>ssm:StartSession</code> на
         <code>AWS-StartSSHSession</code>.</li>
+      <li><b>Только оболочка AWS SSM</b> (вариант входа рядом с «Пароль» / «SSH-ключ»): подключение открывает обычный
+        <code>aws ssm start-session</code> в системном терминале, без SSH, и ключей на сервере не остаётся. Чтобы
+        работали файлы, скрипты и мониторинг, выберите <b>«Настроить вход по ключу…»</b>: ключ ставится через AWS указанному
+        пользователю Linux, и сервер переключается на вход по ключу через SSM.</li>
       <li>С AWS SSO, когда вход истёк, выберите <b>Войти в AWS (SSO)</b> в меню сервера (запускается
         <code>aws sso login</code>, открывается браузер).</li>
     </ul>

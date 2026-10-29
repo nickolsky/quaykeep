@@ -40,7 +40,8 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
 
     public bool IsRunning(Guid serverId) => _running.ContainsKey(serverId);
 
-    public static bool Supported(ServerEntry s) => string.IsNullOrWhiteSpace(s.JumpHost);
+    /// <summary>SSH.NET can log in: not behind a jump host, and not an SSM server with only a shell.</summary>
+    public static bool Supported(ServerEntry s) => string.IsNullOrWhiteSpace(s.JumpHost) && s.SshLogin;
 
     /// <summary>True when there is no fresh data and no recent failed attempt.</summary>
     public bool NeedsRefresh(ServerEntry s)
@@ -70,7 +71,7 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
             if (!vault.TryRead(d => d.Servers.FirstOrDefault(x => x.Id == id)?.Clone(), out var server) || server == null) return;
             if (!Supported(server))
             {
-                vault.UpdateFacts(id, f => f.InventoryError = L.Get("Inventory.JumpHost"));
+                vault.UpdateFacts(id, f => f.InventoryError = L.Get(server.SshLogin ? "Inventory.JumpHost" : "Ssm.ShellOnly"));
                 return;
             }
             _lastAttempt[id] = DateTime.UtcNow;

@@ -39,6 +39,7 @@ public sealed class SshClientFactory(VaultService vault, KnownHostsService known
 
     private T Open<T>(ServerEntry server, KeyEntry? key, bool interactive, Func<ConnectionInfo, T> create) where T : BaseClient
     {
+        if (key == null && !server.SshLogin) throw new InvalidOperationException(L.Get("Ssm.ShellOnly"));
         AuthenticationMethod[] methods;
         if (key != null)
         {

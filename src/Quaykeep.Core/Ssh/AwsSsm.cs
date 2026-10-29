@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json.Nodes;
 using Quaykeep.Core.Models;
 
 namespace Quaykeep.Core.Ssh;
@@ -38,13 +39,28 @@ public static class AwsSsm
     private static string? Existing(params string[] paths) => paths.FirstOrDefault(File.Exists);
 
     /// <summary>Arguments of "aws ssm start-session" that tunnel to sshd's <paramref name="port"/> on <paramref name="target"/>.</summary>
-    public static List<string> StartSessionArgs(ServerEntry server, string target, string port)
+    public static List<string> StartSessionArgs(ServerEntry server, string target, string port) =>
+        WithProfile(server, ["ssm", "start-session", "--target", target, "--document-name", Document, "--parameters", "portNumber=" + port]);
+
+    /// <summary>The plain shell session (as ssm-user, no SSH): what a server without SSH login opens.</summary>
+    public static List<string> ShellArgs(ServerEntry server) =>
+        WithProfile(server, ["ssm", "start-session", "--target", server.Host.Trim()]);
+
+    /// <summary>Arguments that run <paramref name="command"/> through AWS-StartNonInteractiveCommand.</summary>
+    public static List<string> CommandArgs(ServerEntry server, string command) =>
+        WithProfile(server, ["ssm", "start-session", "--target", server.Host.Trim(), "--document-name", "AWS-StartNonInteractiveCommand",
+            // JSON, not the CLI's shorthand: a command has commas and quotes
+            "--parameters", new JsonObject { ["command"] = new JsonArray(command) }.ToJsonString()]);
+
+    private static List<string> WithProfile(ServerEntry server, List<string> a)
     {
-        var a = new List<string> { "ssm", "start-session", "--target", target, "--document-name", Document, "--parameters", "portNumber=" + port };
         if (!string.IsNullOrWhiteSpace(server.SsmProfile)) a.AddRange(["--profile", server.SsmProfile.Trim()]);
         if (!string.IsNullOrWhiteSpace(server.SsmRegion)) a.AddRange(["--region", server.SsmRegion.Trim()]);
         return a;
     }
+
+    public static string ShellCommandLine(ServerEntry server, string cli) =>
+        string.Join(' ', new[] { cli }.Concat(ShellArgs(server)).Select(QuoteArg));
 
     /// <summary>The same session as an OpenSSH ProxyCommand (the external terminal and the copied command).</summary>
     public static string ProxyCommand(ServerEntry server, string cli) =>
@@ -55,15 +71,65 @@ public static class AwsSsm
         s.Length > 0 && s.All(c => char.IsAsciiLetterOrDigit(c) || "-_./:=@,".Contains(c)) ? s : "\"" + s + "\"";
 
     /// <summary>Starts the CLI for a <see cref="SsmTunnel"/>, with the plugin's folder in PATH.</summary>
-    public static ProcessStartInfo StartInfo(ServerEntry server)
+    public static ProcessStartInfo StartInfo(ServerEntry server) =>
+        Cli(StartSessionArgs(server, server.Host.Trim(), server.Port.ToString()));
+
+    /// <summary>The plain shell (<see cref="ShellArgs"/>) for a terminal.</summary>
+    public static ProcessStartInfo ShellStartInfo(ServerEntry server) => Cli(ShellArgs(server));
+
+    private static ProcessStartInfo Cli(IEnumerable<string> args)
     {
         var cli = FindCli() ?? throw new InvalidOperationException(L.Get("Ssm.NoCli"));
         var psi = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true };
-        foreach (var a in StartSessionArgs(server, server.Host.Trim(), server.Port.ToString())) psi.ArgumentList.Add(a);
-        if (FindPlugin() is { } plugin)
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        // the CLI finds the plugin only in PATH, which a macOS app doesn't inherit from the shell
+        if (FindPlugin() is { } plugin && SessionLauncher.FindOnPath(Path.GetFileName(plugin)) == null)
             psi.Environment["PATH"] = Path.GetDirectoryName(plugin) + Path.PathSeparator + psi.Environment["PATH"];
         return psi;
     }
+
+    /// <summary>
+    /// Runs a POSIX sh script on the instance through SSM, as the session's user (ssm-user, which has sudo, unless the
+    /// account set another Run As user). The plugin's own "Starting/Exiting session" lines are part of the output.
+    /// </summary>
+    public static async Task<(string Output, string Errors)> RunAsync(ServerEntry server, string script, TimeSpan timeout)
+    {
+        var psi = Cli(CommandArgs(server, "sh -c " + RemoteShell.Quote(script)));
+        psi.RedirectStandardOutput = psi.RedirectStandardError = true;
+        psi.RedirectStandardInput = true;
+        using var p = Process.Start(psi) ?? throw new InvalidOperationException(psi.FileName);
+        p.StandardInput.Close();
+        var output = p.StandardOutput.ReadToEndAsync();
+        var errors = p.StandardError.ReadToEndAsync();
+        using var cts = new CancellationTokenSource(timeout);
+        try
+        {
+            await p.WaitForExitAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            p.Kill(entireProcessTree: true);
+            throw new TimeoutException(L.Get("Ssm.CommandTimeout"));
+        }
+        return (await output, await errors);
+    }
+
+    /// <summary>
+    /// Adds <paramref name="publicKey"/> to <paramref name="user"/>'s authorized_keys (sudo when the session isn't root),
+    /// creating ~/.ssh with the user's ownership. Prints SSHM_OK, or SSHM_NOUSER when there is no such user.
+    /// </summary>
+    public static string InstallKeyScript(string user, string publicKey) =>
+        $"u={RemoteShell.Quote(user)}; pub={RemoteShell.Quote(publicKey)}\n" + InstallKeyBody;
+
+    private const string InstallKeyBody = """
+        h=$(getent passwd "$u" | cut -d: -f6)
+        if [ -z "$h" ]; then echo SSHM_NOUSER; exit 1; fi
+        if [ "$(id -u)" = 0 ]; then S=; else S='sudo -n'; fi
+        $S sh -c 'umask 077; d="$1/.ssh"
+          mkdir -p "$d" && touch "$d/authorized_keys" &&
+          { grep -qxF "$2" "$d/authorized_keys" || echo "$2" >> "$d/authorized_keys"; } &&
+          chown "$3": "$d" "$d/authorized_keys" && chmod 700 "$d" && chmod 600 "$d/authorized_keys"' sh "$h" "$pub" "$u" && echo SSHM_OK
+        """;
 
     /// <summary>
     /// "aws sso login" for the server's profile: the CLI opens the browser and waits for the sign-in there.

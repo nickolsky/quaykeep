@@ -116,6 +116,10 @@
         <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html">Session Manager plugin</a>.</li>
       <li>The instance needs the SSM agent online and sshd running; your AWS role needs <code>ssm:StartSession</code> on
         <code>AWS-StartSSHSession</code>.</li>
+      <li><b>AWS SSM shell only</b> (login choice next to Password / SSH key): connecting opens the plain
+        <code>aws ssm start-session</code> in the system terminal, with no SSH and no key left on the server. To get
+        files, scripts and monitoring, use <b>Set up key login…</b>: it installs a key through AWS for the Linux user you
+        name and switches the server to key login through SSM.</li>
       <li>With AWS SSO, when the sign-in expires, use <b>Sign in to AWS (SSO)</b> in the server's menu (it runs
         <code>aws sso login</code> and opens the browser).</li>
     </ul>

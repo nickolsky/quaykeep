@@ -105,7 +105,7 @@ internal sealed class TrayIcon : IDisposable
     private NativeMenuItem ServerItem(ServerEntry s)
     {
         var item = Item($"{s.Name}    {s.Display}", () => _host.Connect(s.Id));
-        item.ToolTip = L.Get(s.Auth == AuthMode.Key ? "Tray.ByKey" : "Tray.ByPassword");
+        item.ToolTip = L.Get(s.Auth switch { AuthMode.Key => "Tray.ByKey", AuthMode.None => "Auth.SsmShell", _ => "Tray.ByPassword" });
         return item;
     }
 

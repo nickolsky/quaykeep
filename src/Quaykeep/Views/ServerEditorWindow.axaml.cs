@@ -53,6 +53,7 @@ public partial class ServerEditorWindow : DialogWindow
         NotesBox.Text = server.Notes ?? "";
         ReloadKeys(server.KeyId);
         if (server.Auth == AuthMode.Key) AuthKey.IsChecked = true;
+        else if (server.Auth == AuthMode.None && server.Ssm) AuthSsmShell.IsChecked = true;
         else AuthPassword.IsChecked = true;
 
         Opened += (_, _) => (isNew ? HostBox : NameBox).Focus();
@@ -65,12 +66,19 @@ public partial class ServerEditorWindow : DialogWindow
         KeyBox.SelectedItem = keys.FirstOrDefault(k => k.Id == select) ?? (keys.Count == 1 ? keys[0] : null);
     }
 
-    private void OnAuthChanged(object? sender, RoutedEventArgs e) => KeyPanel.IsVisible = AuthKey.IsChecked == true;
+    private void OnAuthChanged(object? sender, RoutedEventArgs e)
+    {
+        KeyPanel.IsVisible = AuthKey.IsChecked == true;
+        PasswordPanel.IsVisible = AuthSsmShell.IsChecked != true;
+    }
 
     private void OnRouteChanged(object? sender, RoutedEventArgs e)
     {
         JumpPanel.IsVisible = RouteJump.IsChecked == true;
         SsmPanel.IsVisible = RouteSsm.IsChecked == true;
+        // "SSM shell only" exists only with SSM
+        AuthSsmShell.IsVisible = RouteSsm.IsChecked == true;
+        if (RouteSsm.IsChecked != true && AuthSsmShell.IsChecked == true) AuthPassword.IsChecked = true;
     }
 
     // ---------- AI agent access (MCP) ----------
@@ -147,7 +155,7 @@ public partial class ServerEditorWindow : DialogWindow
             ShowError(L.Get("Editor.NeedUser"));
             return;
         }
-        var auth = AuthKey.IsChecked == true ? AuthMode.Key : AuthMode.Password;
+        var auth = AuthKey.IsChecked == true ? AuthMode.Key : AuthSsmShell.IsChecked == true ? AuthMode.None : AuthMode.Password;
         var key = KeyBox.SelectedItem as KeyEntry;
         if (auth == AuthMode.Key && key == null)
         {

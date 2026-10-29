@@ -28,24 +28,8 @@ public sealed class KeySetupService(VaultService vault, SshClientFactory ssh)
         using var client = ssh.Connect(server, key: null);
         log(L.Get("KeySetup.PasswordOk"));
 
-        KeyEntry key;
-        bool isNew;
-        if (existingKeyId is { } id)
-        {
-            key = ssh.FindKey(id) ?? throw new InvalidOperationException(L.Get("KeySetup.KeyNotFound"));
-            isNew = false;
-            log(L.F("KeySetup.UsingExisting", key.Name, key.Fingerprint));
-        }
-        else
-        {
-            var comment = KeyService.SanitizeComment($"{server.Username}@{server.Name}-{DateTime.Now:yyyyMMdd}");
-            key = KeyService.Generate($"{server.Username}@{server.Name}", comment, KeyAlgorithm.Ed25519);
-            isNew = true;
-            log(L.F("KeySetup.Generated", key.Fingerprint));
-        }
-
+        var key = PickKey(server, server.Username, existingKeyId, log, out var isNew);
         var pub = key.PublicKey.Trim();
-        if (pub.Contains('\'')) throw new InvalidOperationException(L.Get("KeySetup.BadChar"));
         var script =
             "umask 077; mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && " +
             "chmod 600 ~/.ssh/authorized_keys && " +
@@ -76,6 +60,72 @@ public sealed class KeySetupService(VaultService vault, SshClientFactory ssh)
         log(L.Get("KeySetup.Switched"));
 
         if (disablePassword) DisablePasswordLogin(server, key, log);
+        return key;
+    }
+
+    /// <summary>The chosen vault key, or a new Ed25519 one (added to the vault only once it is installed).</summary>
+    private KeyEntry PickKey(ServerEntry server, string user, Guid? existingKeyId, Action<string> log, out bool isNew)
+    {
+        KeyEntry key;
+        if (existingKeyId is { } id)
+        {
+            key = ssh.FindKey(id) ?? throw new InvalidOperationException(L.Get("KeySetup.KeyNotFound"));
+            isNew = false;
+            log(L.F("KeySetup.UsingExisting", key.Name, key.Fingerprint));
+        }
+        else
+        {
+            var comment = KeyService.SanitizeComment($"{user}@{server.Name}-{DateTime.Now:yyyyMMdd}");
+            key = KeyService.Generate($"{user}@{server.Name}", comment, KeyAlgorithm.Ed25519);
+            isNew = true;
+            log(L.F("KeySetup.Generated", key.Fingerprint));
+        }
+        if (key.PublicKey.Contains('\'')) throw new InvalidOperationException(L.Get("KeySetup.BadChar"));
+        return key;
+    }
+
+    /// <summary>
+    /// The same for a server with only an AWS SSM shell: the key goes into <paramref name="user"/>'s authorized_keys
+    /// through an SSM command instead of a password login, then key login is checked through SSM and the server
+    /// switches to it (and to that user). Until then nothing is installed on the server.
+    /// </summary>
+    public KeyEntry SetupKeyAuthViaSsm(ServerEntry server, Guid? existingKeyId, string user, Action<string> log)
+    {
+        user = user.Trim();
+        if (user.Length == 0) throw new InvalidOperationException(L.Get("Editor.NeedUser"));
+        var key = PickKey(server, user, existingKeyId, log, out var isNew);
+
+        var pub = key.PublicKey.Trim();
+        log(L.F("KeySetup.SsmAdding", server.Host, user));
+        var (output, errors) = AwsSsm.RunAsync(server, AwsSsm.InstallKeyScript(user, pub), TimeSpan.FromMinutes(2)).GetAwaiter().GetResult();
+        if (output.Contains("SSHM_NOUSER")) throw new InvalidOperationException(L.F("KeySetup.SsmNoUser", user));
+        if (!output.Contains("SSHM_OK"))
+            throw new InvalidOperationException(AwsSsm.Explain(errors, server) ?? L.Get("KeySetup.WriteFailed") + " " + output.Trim());
+
+        if (isNew) vault.Update(d => d.Keys.Add(key));
+        KeyService.EnsurePublicKeyFile(key);
+        log(L.Get("KeySetup.Installed"));
+
+        var withKey = server.Clone();
+        withKey.Username = user;
+        withKey.Auth = AuthMode.Key;
+        withKey.KeyId = key.Id;
+        using (var check = ssh.Connect(withKey, key))
+        {
+            var r = check.RunCommand("echo SSHM_KEY_OK");
+            if (!r.Result.Contains("SSHM_KEY_OK"))
+                throw new InvalidOperationException(L.Get("KeySetup.CheckFailed"));
+        }
+        log(L.Get("KeySetup.KeyWorks"));
+
+        vault.Update(d =>
+        {
+            var s = d.Servers.First(x => x.Id == server.Id);
+            s.Username = user;
+            s.Auth = AuthMode.Key;
+            s.KeyId = key.Id;
+        });
+        log(L.Get("KeySetup.SsmSwitched"));
         return key;
     }
 

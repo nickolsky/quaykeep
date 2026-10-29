@@ -354,7 +354,8 @@ public sealed class AppHost : IDisposable
 
     /// <summary>
     /// Opens a shell (or runs <paramref name="command"/>): in a tab of the main window with the built-in terminal,
-    /// otherwise in the system's terminal. Jump hosts and extra ssh arguments need OpenSSH, so they always go outside.
+    /// otherwise in the system's terminal. Jump hosts and extra ssh arguments need OpenSSH, and an SSM shell without SSH
+    /// login is the aws CLI, so they always go outside.
     /// </summary>
     public void OpenSession(ServerEntry server, string? command = null, string? title = null)
     {
@@ -376,6 +377,7 @@ public sealed class AppHost : IDisposable
     /// <summary>The server's file manager tab (SFTP). Not for servers behind a jump host.</summary>
     public void OpenFiles(ServerEntry server, string? dir = null)
     {
+        if (!server.SshLogin) throw new InvalidOperationException(L.Get("Ssm.ShellOnly"));
         if (!string.IsNullOrWhiteSpace(server.JumpHost) || !string.IsNullOrWhiteSpace(server.ExtraArgs))
             throw new InvalidOperationException(L.Get("Files.NoJump"));
         ShowMainWindow();
@@ -385,14 +387,16 @@ public sealed class AppHost : IDisposable
     /// <summary>A remote file in the built-in editor tab. Not for servers behind a jump host.</summary>
     public void OpenEditor(ServerEntry server, string path)
     {
+        if (!server.SshLogin) throw new InvalidOperationException(L.Get("Ssm.ShellOnly"));
         if (!string.IsNullOrWhiteSpace(server.JumpHost) || !string.IsNullOrWhiteSpace(server.ExtraArgs))
             throw new InvalidOperationException(L.Get("Files.NoJump"));
         ShowMainWindow();
         _main?.OpenEditor(server, path);
     }
 
+    /// <remarks>An SSM shell without SSH login is the aws CLI itself, so it opens in the system's terminal too.</remarks>
     public bool UseBuiltInTerminal(ServerEntry server) =>
-        SettingsStore.Settings.Terminal == TerminalMode.BuiltIn &&
+        SettingsStore.Settings.Terminal == TerminalMode.BuiltIn && server.SshLogin &&
         string.IsNullOrWhiteSpace(server.JumpHost) && string.IsNullOrWhiteSpace(server.ExtraArgs);
 
     public TerminalSession CreateTerminalSession(ServerEntry server) =>
