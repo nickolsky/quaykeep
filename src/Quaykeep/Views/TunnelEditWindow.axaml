@@ -6,6 +6,10 @@
         Title="{l:Tr TunnelEdit.Title}" Width="520" SizeToContent="Height" MinWidth="440" CanResize="False">
     <StackPanel Margin="24,16,24,20">
         <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <StackPanel x:Name="ServerPanel" IsVisible="False">
+            <TextBlock Classes="fieldLabel" Text="{l:Tr TunnelEdit.Server}" />
+            <ComboBox x:Name="ServerBox" HorizontalAlignment="Stretch" SelectionChanged="OnServerChanged" />
+        </StackPanel>
 
         <TextBlock Classes="fieldLabel" Text="{l:Tr TunnelEdit.Kind}" />
         <StackPanel Orientation="Horizontal">

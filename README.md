@@ -164,6 +164,8 @@ On first start the program asks you to choose a master password and offers to st
     reconnects with growing pauses, up to a minute. A busy port, an untrusted host key or an expired SSO sign-in stops
     it with the reason. "Start with Quaykeep" opens a tunnel on every unlock. The editor shows the equivalent `ssh` /
     `aws` command, and "Copy address" gives `127.0.0.1:5432` or `socks5://127.0.0.1:1080`.
+  - **View → All tunnels…** (also "Tunnels…" in the tray menu) lists every server's tunnels in one grid with a Server
+    column, **Start all / Stop all** and an "only the ones on" filter; adding a tunnel there asks for the server.
 - **Firewall** ("Firewall…" in the server menu, "Firewall for the group…" in a group's menu): **block** chosen IPs and
   networks, or **allow only** them, for ports (tcp/udp, lists, ranges) or for the whole server; IPv4 and IPv6.
   - **Where it covers:** ports published by Docker containers and port forwards are covered too, so Docker's usual way

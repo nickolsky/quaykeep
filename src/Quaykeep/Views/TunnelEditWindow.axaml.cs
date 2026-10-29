@@ -8,15 +8,24 @@ namespace Quaykeep.Views;
 /// <summary>Adds or changes one tunnel; shows the equivalent ssh / aws command as it is filled in.</summary>
 public partial class TunnelEditWindow : DialogWindow
 {
+    private sealed record ServerChoice(ServerEntry Server)
+    {
+        public override string ToString() => $"{Server.Name}  ({Server.Display})";
+    }
+
     private readonly AppHost _host;
-    private readonly ServerEntry _server;
     private readonly Tunnel _tunnel;
+    private ServerEntry _server;
 
     /// <summary>The saved tunnel when the dialog returns true.</summary>
     public Tunnel? Result { get; private set; }
 
+    /// <summary>The server the tunnel belongs to (the chosen one when <c>servers</c> were offered).</summary>
+    public Guid ServerId => _server.Id;
+
     /// <param name="tunnel">A copy to change, or null for a new one.</param>
-    public TunnelEditWindow(AppHost host, ServerEntry server, Tunnel? tunnel)
+    /// <param name="servers">Servers to choose from (adding from the list of all tunnels); null = only <paramref name="server"/>.</param>
+    public TunnelEditWindow(AppHost host, ServerEntry server, Tunnel? tunnel, IReadOnlyList<ServerEntry>? servers = null)
     {
         InitializeComponent();
         _host = host;
@@ -26,8 +35,15 @@ public partial class TunnelEditWindow : DialogWindow
             // an SSM server without SSH login has only SSM port forwarding
             Via = server.Ssm && !server.SshLogin ? TunnelVia.Ssm : TunnelVia.Ssh,
         };
-        Header.Text = $"{server.Name}  ({server.Display})";
-        ViaPanel.IsVisible = server.Ssm;
+        if (servers is { Count: > 1 })
+        {
+            var choices = servers.Select(s => new ServerChoice(s)).ToList();
+            ServerBox.ItemsSource = choices;
+            ServerBox.SelectedItem = choices.FirstOrDefault(c => c.Server.Id == server.Id) ?? choices[0];
+            ServerPanel.IsVisible = true;
+            Header.IsVisible = false;
+        }
+        ShowServer();
         (_tunnel.Kind == TunnelKind.Dynamic ? KindDynamic : KindLocal).IsChecked = true;
         (_tunnel.Via == TunnelVia.Ssm ? ViaSsm : ViaSsh).IsChecked = true;
         LocalPortBox.Text = _tunnel.LocalPort > 0 ? _tunnel.LocalPort.ToString() : "";
@@ -39,6 +55,23 @@ public partial class TunnelEditWindow : DialogWindow
             box.TextChanged += (_, _) => ShowCommand();
         OnChanged(this, new RoutedEventArgs());
         Opened += (_, _) => LocalPortBox.Focus();
+    }
+
+    private void ShowServer()
+    {
+        Header.Text = $"{_server.Name}  ({_server.Display})";
+        ViaPanel.IsVisible = _server.Ssm;
+    }
+
+    private void OnServerChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
+    {
+        if (ServerBox.SelectedItem is not ServerChoice c || ViaSsm is null) return;
+        _server = c.Server;
+        ShowServer();
+        // what fits the newly chosen server: SSM forwarding is all a shell-only one has, plain SSH servers have no SSM
+        if (!_server.Ssm) ViaSsh.IsChecked = true;
+        else if (!_server.SshLogin) ViaSsm.IsChecked = true;
+        OnChanged(this, new RoutedEventArgs());
     }
 
     private void OnChanged(object? sender, RoutedEventArgs e)

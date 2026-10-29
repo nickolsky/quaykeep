@@ -192,6 +192,9 @@ public partial class MainWindow : Window
         return (tab, brush => dot.SetResourceReference(Shape.FillProperty, brush), text);
     }
 
+    /// <summary>The list of every server's tunnels (from the tray).</summary>
+    public void OpenAllTunnels() => _vm.OpenAllTunnels();
+
     /// <summary>Opens a terminal tab for the server and switches to it.</summary>
     /// <param name="cd">Start in this remote folder (an interactive shell, not a command).</param>
     public void OpenTerminal(ServerEntry server, string? command, string? title, string? cd = null)

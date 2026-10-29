@@ -3,9 +3,13 @@
         xmlns:v="using:Quaykeep.Views"
         xmlns:l="using:Quaykeep.Localization"
         x:Class="Quaykeep.Views.TunnelsWindow"
-        Width="760" Height="440" MinWidth="560" MinHeight="300" ShowInTaskbar="True">
+        Width="860" Height="480" MinWidth="620" MinHeight="300" ShowInTaskbar="True">
     <Grid Margin="20,14,20,18" RowDefinitions="Auto,Auto,*,Auto,Auto">
-        <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <DockPanel>
+            <CheckBox x:Name="RunningOnly" DockPanel.Dock="Right" Content="{l:Tr Tunnels.RunningOnly}" IsCheckedChanged="OnFilterChanged"
+                      IsVisible="False" VerticalAlignment="Center" />
+            <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </DockPanel>
         <TextBlock Grid.Row="1" Classes="hint" Text="{l:Tr Tunnels.Hint}" TextWrapping="Wrap" Margin="0,6,0,10" />
 
         <DataGrid Grid.Row="2" x:Name="TunnelsGrid" AutoGenerateColumns="False" SelectionMode="Single" IsReadOnly="True"
@@ -28,6 +32,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTextColumn Header="{l:Tr Tunnels.ColServer}" Binding="{Binding ServerName}" Width="160" IsVisible="False" />
                 <DataGridTextColumn Header="{l:Tr Tunnels.ColName}" Binding="{Binding Name}" Width="*" />
                 <DataGridTextColumn Header="{l:Tr Tunnels.ColRoute}" Binding="{Binding Route}" Width="220" />
                 <DataGridTextColumn Header="{l:Tr Tunnels.ColVia}" Binding="{Binding Via}" Width="90" />
@@ -44,6 +49,8 @@
                 <Button x:Name="CopyButton" Content="{l:Tr Tunnels.Copy}" Click="OnCopy" Padding="12,5" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="StartAllButton" Content="{l:Tr Tunnels.StartAll}" Click="OnStartAll" Padding="12,5" />
+                <Button x:Name="StopAllButton" Content="{l:Tr Tunnels.StopAll}" Click="OnStopAll" Padding="12,5" />
                 <Button x:Name="ToggleButton" Content="{l:Tr Tunnels.Start}" Click="OnToggle" Classes="accent" MinWidth="110" />
                 <Button Content="{l:Tr Common.Close}" Click="OnClose" Classes="dialog" />
             </StackPanel>

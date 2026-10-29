@@ -379,6 +379,13 @@ public sealed class AppHost : IDisposable
         });
     }
 
+    /// <summary>The main window with the list of every server's tunnels on top (the tray's "Tunnels…").</summary>
+    public void ShowTunnels()
+    {
+        ShowMainWindow();
+        _main?.OpenAllTunnels();
+    }
+
     /// <summary>The server's file manager tab (SFTP). Not for servers behind a jump host.</summary>
     public void OpenFiles(ServerEntry server, string? dir = null)
     {

@@ -41,6 +41,7 @@ internal sealed class TrayIcon : IDisposable
     {
         _menu.Items.Clear();
         _menu.Items.Add(Item(L.Get("Tray.Open"), _host.ShowMainWindow));
+        _menu.Items.Add(Item(L.Get("Tray.Tunnels"), _host.ShowTunnels));
 
         var connect = new NativeMenuItem(L.Get("Tray.Connect")) { Menu = new NativeMenu() };
         if (_host.Vault.IsUnlocked)

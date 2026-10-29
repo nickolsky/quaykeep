@@ -143,6 +143,7 @@
                     <MenuItem Header="{l:Tr Menu.ExpandAll}" Command="{Binding ExpandAllCommand}" />
                     <MenuItem Header="{l:Tr Menu.CollapseAll}" Command="{Binding CollapseAllCommand}" />
                     <MenuItem Header="{l:Tr Menu.NetworkMap}" Command="{Binding NetworkMapCommand}" InputGesture="Ctrl+M" />
+                    <MenuItem Header="{l:Tr Menu.AllTunnels}" Command="{Binding AllTunnelsCommand}" />
                     <Separator />
                     <MenuItem Header="{l:Tr Menu.RefreshAll}" Command="{Binding RefreshAllCommand}" InputGesture="F5" />
                 </MenuItem>
