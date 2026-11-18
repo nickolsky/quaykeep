@@ -211,7 +211,7 @@ pwsh ./release.ps1                  # установщики и ленты об�
 
   | Группа | Скрипт | Что получается |
   |---|---|---|
-  | VPN | **VLESS REALITY** (Xray в Docker) — Ubuntu и CentOS; Debian 12 с маленьким диском; выбор TLS-профиля клиента (safari по умолчанию; также edge, ios, android, qq и случайные режимы) | ссылка `vless://…`, порт на мониторинге |
+  | VPN | **VLESS REALITY** (Xray в Docker) — Ubuntu и CentOS; Debian 12 с маленьким диском; выбор TLS-профиля REALITY (safari по умолчанию; также поддерживаются chrome и firefox) | ссылка `vless://…`, порт на мониторинге |
   | VPN | **Hysteria 2** (официальный образ): самоподписанный сертификат с pinSHA256 или Let's Encrypt, obfs Salamander | ссылка `hysteria2://…` |
   | VPN | **AmneziaWG** (официальный `amneziavpn/amneziawg-go`, без модуля ядра, от 512 МБ памяти); клиенты по именам: `phone,laptop` | ключ `vpn://` для Amnezia VPN на каждого клиента, QR-код конфига (AmneziaWG и Amnezia VPN), `.conf` в `/opt/amneziawg/clients` |
   | Веб-сервер | **Статический сайт — nginx без Docker**, HTTPS через certbot | папка `/var/www/sshm-site` |

@@ -297,6 +297,23 @@ public class BuiltinScriptTests
             Assert.False(string.IsNullOrWhiteSpace(m.Name));
             Assert.Contains(m.Params, p => p.Name == "XRAY_PORT" && p.Type == ScriptParamType.Number);
             Assert.Contains(m.Params, p => p.Name == "XHTTP_PATH" && p.WhenName == "XRAY_TRANSPORT");
+            var fingerprint = Assert.Single(m.Params, p => p.Name == "XRAY_FINGERPRINT");
+            Assert.Equal(ScriptParamType.Choice, fingerprint.Type);
+            Assert.True(fingerprint.Required);
+            Assert.Equal("safari", fingerprint.Default);
+            Assert.Equal(new[] { "safari", "chrome", "firefox" }, fingerprint.Options);
+            var values = m.InitialValues(null);
+            foreach (var preset in fingerprint.Options)
+            {
+                values["XRAY_FINGERPRINT"] = preset;
+                Assert.Null(m.Validate(values));
+            }
+            // A remembered general TLS preset must not reach a new REALITY installation.
+            foreach (var preset in new[] { "edge", "ios", "android", "360", "qq", "random", "randomized" })
+            {
+                values["XRAY_FINGERPRINT"] = preset;
+                Assert.NotNull(m.Validate(values));
+            }
             Assert.NotNull(m.Result("VLESS_URL"));
             Assert.Equal("Xray", m.Result("XRAY_PORT")!.MonitorName);
             Assert.Contains("sshm_result VLESS_URL", b.Body);

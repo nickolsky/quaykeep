@@ -10,7 +10,7 @@
 #
 # @param REALITY_DOMAIN text required label="Домен для маскировки (SNI)" label_en="Domain to mimic (SNI)" default=dl.google.com hint="Сайт, под который маскируется трафик REALITY" hint_en="Site whose TLS the REALITY traffic imitates"
 # @param XRAY_TRANSPORT choice options=xhttp,tcp default=xhttp label="Транспорт" label_en="Transport" hint="xhttp — новый режим; tcp — старый, с flow=xtls-rprx-vision (для клиентов без XHTTP)" hint_en="xhttp is the new mode; tcp is the old one with flow=xtls-rprx-vision (for clients without XHTTP)"
-# @param XRAY_FINGERPRINT choice required options=safari,chrome,firefox,edge,ios,android,qq,random,randomized default=safari label="TLS fingerprint клиента" label_en="Client TLS fingerprint" hint="Safari по умолчанию; нужен актуальный Xray-core (26.11.9+). Edge/iOS/Android/QQ и случайные режимы могут не работать с новым REALITY." hint_en="Safari by default; use current Xray-core (26.11.9+). Edge/iOS/Android/QQ and random modes may fail with newer REALITY."
+# @param XRAY_FINGERPRINT choice required options=safari,chrome,firefox default=safari label="TLS fingerprint клиента" label_en="Client TLS fingerprint" hint="Safari по умолчанию; нужен актуальный Xray-core (26.11.9+). Для REALITY Xray гарантирует MLKEM только у safari, chrome и firefox." hint_en="Safari by default; use current Xray-core (26.11.9+). Xray guarantees REALITY MLKEM support only for safari, chrome, and firefox."
 # @param XRAY_PORT number required default=443 label="Порт Xray" label_en="Xray port"
 # @param XHTTP_PATH text default=/xhttp when=XRAY_TRANSPORT=xhttp label="Путь XHTTP" label_en="XHTTP path"
 # @param SERVER_ADDRESS text label="Адрес сервера в ссылке" label_en="Server address in the link" hint="Пусто — внешний IP сервера (api.ipify.org)" hint_en="Empty = the server's public IP (api.ipify.org)"
@@ -376,19 +376,15 @@ start_xray(){
 
 get_public_ip(){ curl -fsSL https://api.ipify.org 2>/dev/null || true; }
 
-# Use the same preset names as the client UI; older presets may fail newer REALITY checks.
+# REALITY requires MLKEM; Xray guarantees these three presets.
+# https://xtls.github.io/en/config/transports/reality.html#realityobject
 configure_fingerprint(){
-  prompt_var XRAY_FINGERPRINT "Enter client TLS fingerprint (safari/chrome/firefox/edge/ios/android/qq/random/randomized)" "safari"
+  prompt_var XRAY_FINGERPRINT "Enter client TLS fingerprint (safari/chrome/firefox)" "safari"
   XRAY_FINGERPRINT="$(trim_value "${XRAY_FINGERPRINT}")"
   XRAY_FINGERPRINT="${XRAY_FINGERPRINT,,}"
   case "${XRAY_FINGERPRINT}" in
-    safari|chrome|firefox|edge|ios|android|qq|random|randomized) ;;
-    *) die "Invalid XRAY_FINGERPRINT: choose safari, chrome, firefox, edge, ios, android, qq, random, or randomized" ;;
-  esac
-  case "${XRAY_FINGERPRINT}" in
-    edge|ios|android|qq|random|randomized)
-      echo "WARNING: ${XRAY_FINGERPRINT} may lack the key share required by newer REALITY servers. Try safari with a current Xray-core if authentication fails." >&2
-      ;;
+    safari|chrome|firefox) ;;
+    *) die "Unsupported XRAY_FINGERPRINT for current REALITY: choose safari, chrome, or firefox (MLKEM required)." ;;
   esac
 }
 print_out(){

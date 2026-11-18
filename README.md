@@ -215,7 +215,7 @@ On first start the program asks you to choose a master password and offers to st
 
   | Group | Script | What you get |
   |---|---|---|
-  | VPN | **VLESS REALITY** (Xray in Docker): Ubuntu and CentOS; Debian 12 with a small disk; client TLS preset dropdown (safari by default; includes edge, ios, android, qq and random modes) | a `vless://…` link, the port under monitoring |
+  | VPN | **VLESS REALITY** (Xray in Docker): Ubuntu and CentOS; Debian 12 with a small disk; REALITY TLS preset dropdown (safari by default; chrome and firefox also supported) | a `vless://…` link, the port under monitoring |
   | VPN | **Hysteria 2** (official image): self-signed certificate with pinSHA256 or Let's Encrypt, Salamander obfs | a `hysteria2://…` link |
   | VPN | **AmneziaWG** (official `amneziavpn/amneziawg-go`, no kernel module, 512 MB of memory or more); clients by name: `phone,laptop` | a `vpn://` key for Amnezia VPN per client, a QR code of the config (AmneziaWG and Amnezia VPN), `.conf` in `/opt/amneziawg/clients` |
   | Web server | **Static site, nginx without Docker**, HTTPS via certbot | the folder `/var/www/sshm-site` |
