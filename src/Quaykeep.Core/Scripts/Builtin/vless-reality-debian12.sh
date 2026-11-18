@@ -10,6 +10,7 @@
 #
 # @param REALITY_DOMAIN text required label="Домен для маскировки (SNI)" label_en="Domain to mimic (SNI)" default=dl.google.com hint="Сайт, под который маскируется трафик REALITY" hint_en="Site whose TLS the REALITY traffic imitates"
 # @param XRAY_TRANSPORT choice options=xhttp,tcp default=xhttp label="Транспорт" label_en="Transport" hint="xhttp — новый режим; tcp — старый, с flow=xtls-rprx-vision (для клиентов без XHTTP)" hint_en="xhttp is the new mode; tcp is the old one with flow=xtls-rprx-vision (for clients without XHTTP)"
+# @param XRAY_FINGERPRINT choice required options=safari,chrome,firefox,edge,ios,android,qq,random,randomized default=safari label="TLS fingerprint клиента" label_en="Client TLS fingerprint" hint="Safari по умолчанию; нужен актуальный Xray-core (26.11.9+). Edge/iOS/Android/QQ и случайные режимы могут не работать с новым REALITY." hint_en="Safari by default; use current Xray-core (26.11.9+). Edge/iOS/Android/QQ and random modes may fail with newer REALITY."
 # @param XRAY_PORT number required default=443 label="Порт Xray" label_en="Xray port"
 # @param XHTTP_PATH text default=/xhttp when=XRAY_TRANSPORT=xhttp label="Путь XHTTP" label_en="XHTTP path"
 # @param SERVER_ADDRESS text label="Адрес сервера в ссылке" label_en="Server address in the link" hint="Пусто — внешний IP сервера (api.ipify.org)" hint_en="Empty = the server's public IP (api.ipify.org)"
@@ -18,6 +19,7 @@
 # @result VLESS_URL label="Ссылка VLESS" label_en="VLESS link"
 # @result XRAY_PORT label="Порт Xray" label_en="Xray port" monitor=Xray
 # @result XRAY_TRANSPORT label="Транспорт Xray" label_en="Xray transport"
+# @result XRAY_FINGERPRINT label="TLS fingerprint клиента" label_en="Client TLS fingerprint"
 # @result XRAY_PUBKEY label="REALITY PublicKey" label_en="REALITY public key"
 #
 # Adapted from github.com/nickolsky/vless_docker_install_scripts for Quaykeep:
@@ -374,6 +376,21 @@ start_xray(){
 
 get_public_ip(){ curl -fsSL https://api.ipify.org 2>/dev/null || true; }
 
+# Use the same preset names as the client UI; older presets may fail newer REALITY checks.
+configure_fingerprint(){
+  prompt_var XRAY_FINGERPRINT "Enter client TLS fingerprint (safari/chrome/firefox/edge/ios/android/qq/random/randomized)" "safari"
+  XRAY_FINGERPRINT="$(trim_value "${XRAY_FINGERPRINT}")"
+  XRAY_FINGERPRINT="${XRAY_FINGERPRINT,,}"
+  case "${XRAY_FINGERPRINT}" in
+    safari|chrome|firefox|edge|ios|android|qq|random|randomized) ;;
+    *) die "Invalid XRAY_FINGERPRINT: choose safari, chrome, firefox, edge, ios, android, qq, random, or randomized" ;;
+  esac
+  case "${XRAY_FINGERPRINT}" in
+    edge|ios|android|qq|random|randomized)
+      echo "WARNING: ${XRAY_FINGERPRINT} may lack the key share required by newer REALITY servers. Try safari with a current Xray-core if authentication fails." >&2
+      ;;
+  esac
+}
 print_out(){
   local ip; ip="$(get_public_ip)"
   local address="${SERVER_ADDRESS:-${ip:-YOUR_SERVER_IP}}"
@@ -381,9 +398,9 @@ print_out(){
 
   if [[ "${XRAY_TRANSPORT}" == "tcp" ]]; then
     flow_value="xtls-rprx-vision"
-    vless_link="vless://${XRAY_UUID}@${address}:${XRAY_PORT}?encryption=none&security=reality&sni=$(url_encode "${REALITY_DOMAIN}")&fp=edge&pbk=$(url_encode "${XRAY_PUBKEY}")&sid=$(url_encode "${XRAY_SHORTID}")&spx=$(url_encode "/")&type=tcp&flow=xtls-rprx-vision#$(url_encode "${LINK_NAME}")"
+    vless_link="vless://${XRAY_UUID}@${address}:${XRAY_PORT}?encryption=none&security=reality&sni=$(url_encode "${REALITY_DOMAIN}")&fp=$(url_encode "${XRAY_FINGERPRINT}")&pbk=$(url_encode "${XRAY_PUBKEY}")&sid=$(url_encode "${XRAY_SHORTID}")&spx=$(url_encode "/")&type=tcp&flow=xtls-rprx-vision#$(url_encode "${LINK_NAME}")"
   else
-    vless_link="vless://${XRAY_UUID}@${address}:${XRAY_PORT}?encryption=none&security=reality&sni=$(url_encode "${REALITY_DOMAIN}")&fp=edge&pbk=$(url_encode "${XRAY_PUBKEY}")&sid=$(url_encode "${XRAY_SHORTID}")&spx=$(url_encode "/")&type=xhttp&host=$(url_encode "${REALITY_DOMAIN}")&path=$(url_encode "${XHTTP_PATH}")&mode=auto#$(url_encode "${LINK_NAME}")"
+    vless_link="vless://${XRAY_UUID}@${address}:${XRAY_PORT}?encryption=none&security=reality&sni=$(url_encode "${REALITY_DOMAIN}")&fp=$(url_encode "${XRAY_FINGERPRINT}")&pbk=$(url_encode "${XRAY_PUBKEY}")&sid=$(url_encode "${XRAY_SHORTID}")&spx=$(url_encode "/")&type=xhttp&host=$(url_encode "${REALITY_DOMAIN}")&path=$(url_encode "${XHTTP_PATH}")&mode=auto#$(url_encode "${LINK_NAME}")"
   fi
 
   echo ""
@@ -396,7 +413,7 @@ print_out(){
   echo "6. Transport:  ${XRAY_TRANSPORT}"
   echo "7. Security:   reality"
   echo "8. SNI:        ${REALITY_DOMAIN}"
-  echo "9. Fingerprint: edge (uTLS)"
+  echo "9. Fingerprint: ${XRAY_FINGERPRINT} (uTLS)"
   echo "10. PublicKey: ${XRAY_PUBKEY}"
   echo "11. ShortID:   ${XRAY_SHORTID} (or leave blank)"
   echo "12. SpiderX:   /"
@@ -411,6 +428,7 @@ print_out(){
   sshm_result VLESS_URL "${vless_link}"
   sshm_result XRAY_PORT "${XRAY_PORT}"
   sshm_result XRAY_TRANSPORT "${XRAY_TRANSPORT}"
+  sshm_result XRAY_FINGERPRINT "${XRAY_FINGERPRINT}"
   sshm_result XRAY_PUBKEY "${XRAY_PUBKEY}"
   echo "============================================================"
   echo ""
@@ -420,14 +438,15 @@ print_out(){
   else
     echo "- IMPORTANT: In v2rayN, leave 'Flow' empty, set transport to 'xhttp', and set XHTTP path to '${XHTTP_PATH}'."
   fi
-  echo "- Set 'Fingerprint' to 'edge' and 'SpiderX' to '/' if your client exposes those fields."
-  echo "- Ensure your client supports Xray REALITY (e.g., v2rayN 6.0+, v2rayNG 1.8+, Nekoray 3.0+)."
+  echo "- Set 'Fingerprint' to '${XRAY_FINGERPRINT}' and 'SpiderX' to '/' if your client exposes those fields."
+  echo "- Use Xray-core 26.11.9 or newer in your client for current TLS presets (including Safari 26.3)."
   echo "- If connection still fails, try changing the mimic domain (REALITY_DOMAIN) to 'dl.google.com'."
   echo ""
 }
 main(){
   require_root
   require_debian12
+  configure_fingerprint
   umask 077
   apt-get clean
   configure_journal
