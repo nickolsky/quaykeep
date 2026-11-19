@@ -326,6 +326,7 @@ public class BuiltinScriptTests
     [Theory]
     [InlineData("hysteria2", "VPN", "HY2_URL")]
     [InlineData("amneziawg", "VPN", "AWG_CLIENTS_DIR")]
+    [InlineData("mtproxy", "VPN", "MTPROXY_URL")]
     [InlineData("static-site-nginx", "Web", "SITE_URL")]
     [InlineData("static-site-docker", "Web", "SITE_URL")]
     [InlineData("nextcloud", "Cloud", "NC_URL")]

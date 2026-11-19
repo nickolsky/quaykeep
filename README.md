@@ -217,6 +217,7 @@ On first start the program asks you to choose a master password and offers to st
   |---|---|---|
   | VPN | **VLESS REALITY** (Xray in Docker): Ubuntu and CentOS; Debian 12 with a small disk; REALITY TLS preset dropdown (safari by default; chrome and firefox also supported) | a `vless://…` link, the port under monitoring |
   | VPN | **Hysteria 2** (official image): self-signed certificate with pinSHA256 or Let's Encrypt, Salamander obfs | a `hysteria2://…` link |
+  | VPN | **MTProxy for Telegram** (official source, x86-64 systemd Linux): configurable TCP port (default 443), optional DNS name or IPv4 for the link, automatic or manual public IPv4 for NAT; reruns keep the secret and refresh Telegram’s relay configuration when reachable | a `tg://proxy?…` link and QR code |
   | VPN | **AmneziaWG** (official `amneziavpn/amneziawg-go`, no kernel module, 512 MB of memory or more); clients by name: `phone,laptop` | a `vpn://` key for Amnezia VPN per client, a QR code of the config (AmneziaWG and Amnezia VPN), `.conf` in `/opt/amneziawg/clients` |
   | Web server | **Static site, nginx without Docker**, HTTPS via certbot | the folder `/var/www/sshm-site` |
   | Web server | **Static site, Caddy in Docker**, HTTPS turns on by itself with a domain | the folder `/opt/static-site/site` |

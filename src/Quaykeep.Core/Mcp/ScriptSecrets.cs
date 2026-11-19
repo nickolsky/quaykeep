@@ -28,9 +28,10 @@ public static partial class ScriptSecrets
     public static bool IsSecret(string key, string? value) =>
         SecretName().IsMatch(key) && !PublicName().IsMatch(key) || value != null && Link().Matches(value).Any(m => IsLoginLink(m.Value));
 
-    /// <summary>A VPN link, or a URL with a user and password in it.</summary>
+    /// <summary>A VPN or Telegram proxy link, or a URL with a user and password in it.</summary>
     public static bool IsLoginLink(string text)
     {
+        if (text.StartsWith("tg://proxy?", StringComparison.OrdinalIgnoreCase)) return true;
         var colon = text.IndexOf("://", StringComparison.Ordinal);
         if (colon <= 0) return false;
         if (LoginSchemes.Contains(text[..colon])) return true;

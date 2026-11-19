@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Version>1.1.2</Version>
+    <Version>1.1.3</Version>
     <Product>Quaykeep</Product>
   </PropertyGroup>
 </Project>

@@ -68,7 +68,7 @@ public partial class LabTests(ITestOutputHelper log)
         Assert.True(failures.Count == 0, string.Join("\n\n", failures));
     }
 
-    private async Task<Dictionary<string, string>> Run(Lab lab, string id, Dictionary<string, string> values, string tag = "")
+    private async Task<Dictionary<string, string>> Run(Lab lab, string id, Dictionary<string, string> values, string tag = "", string? optionalResult = null)
     {
         var builtin = BuiltinScripts.All.Single(b => b.Id == id);
         var script = new ScriptEntry { Name = builtin.Manifest.Name ?? id, Body = builtin.Body, UseSudo = true, BuiltinId = id };
@@ -84,7 +84,7 @@ public partial class LabTests(ITestOutputHelper log)
         log.WriteLine($"{id}{tag} on {lab.Server.Name}: exit {r.ExitCode} in {(DateTime.Now - started).TotalSeconds:0}s, log {file}");
         var tail = string.Join('\n', output.ToString().Split('\n').TakeLast(40));
         Assert.True(r.Ok, $"{id}{tag} exited with {r.ExitCode}:\n{tail}");
-        foreach (var res in builtin.Manifest.Results.Where(x => !x.Name.EndsWith("_PASSWORD") && !x.IsPattern))
+        foreach (var res in builtin.Manifest.Results.Where(x => x.Name != optionalResult && !x.Name.EndsWith("_PASSWORD") && !x.IsPattern))
             Assert.True(r.Results.ContainsKey(res.Name), $"{id}: no result {res.Name}\n{tail}");
         return r.Results;
     }

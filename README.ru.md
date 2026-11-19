@@ -213,6 +213,7 @@ pwsh ./release.ps1                  # установщики и ленты об�
   |---|---|---|
   | VPN | **VLESS REALITY** (Xray в Docker) — Ubuntu и CentOS; Debian 12 с маленьким диском; выбор TLS-профиля REALITY (safari по умолчанию; также поддерживаются chrome и firefox) | ссылка `vless://…`, порт на мониторинге |
   | VPN | **Hysteria 2** (официальный образ): самоподписанный сертификат с pinSHA256 или Let's Encrypt, obfs Salamander | ссылка `hysteria2://…` |
+  | VPN | **MTProxy для Telegram** (официальные исходники, Linux x86-64 с systemd): настраиваемый TCP-порт (по умолчанию 443), DNS-имя или IPv4 для ссылки, автоматическое или ручное определение внешнего IPv4 для NAT; повторный запуск сохраняет секрет и обновляет список серверов, когда Telegram доступен | ссылка `tg://proxy?…` и QR-код |
   | VPN | **AmneziaWG** (официальный `amneziavpn/amneziawg-go`, без модуля ядра, от 512 МБ памяти); клиенты по именам: `phone,laptop` | ключ `vpn://` для Amnezia VPN на каждого клиента, QR-код конфига (AmneziaWG и Amnezia VPN), `.conf` в `/opt/amneziawg/clients` |
   | Веб-сервер | **Статический сайт — nginx без Docker**, HTTPS через certbot | папка `/var/www/sshm-site` |
   | Веб-сервер | **Статический сайт — Caddy в Docker**, с доменом HTTPS включается сам | папка `/opt/static-site/site` |

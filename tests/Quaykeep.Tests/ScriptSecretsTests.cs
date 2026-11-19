@@ -13,6 +13,8 @@ public class ScriptSecretsTests
     [InlineData("XRAY_PUBKEY", "Zx1abc", false)] // meant to be shared
     [InlineData("VLESS_URL", "vless://6f1c3a52-uuid@203.0.113.9:443?security=reality#vpn", true)]
     [InlineData("HY2_URL", "hysteria2://secret@203.0.113.9:8443?sni=example.com", true)]
+    [InlineData("MTPROXY_URL", "tg://proxy?server=203.0.113.9&port=443&secret=ddabcd", true)]
+    [InlineData("TELEGRAM_URL", "tg://resolve?domain=telegram", false)]
     [InlineData("AMNEZIA", "vpn://AAAAeJyrVkrLz1eyUkrKL8pLzUvOTM7PS1WqBQA", true)]
     [InlineData("DB_URL", "postgres://app:pa55@db:5432/app", true)] // user:password in the address
     [InlineData("SITE_URL", "https://example.com:8443/", false)]
