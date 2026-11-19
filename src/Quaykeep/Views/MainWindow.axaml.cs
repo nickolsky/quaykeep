@@ -450,10 +450,17 @@ public partial class MainWindow : Window
             else if (_vm.SelectedNode is { } n) n.IsExpanded = !n.IsExpanded;
             e.Handled = true;
         }
-        else if (e.Key == Key.Delete && _vm.CanDelete)
+        else if (e.Key == Key.Delete && e.KeyModifiers == KeyModifiers.None)
         {
-            _vm.DeleteServerCommand.Execute(null);
-            e.Handled = true;
+            var selected = ServersTree.SelectedItems;
+            if (_vm.DeleteScriptItems(selected)) e.Handled = true;
+            else if (selected.Count == 1 && _vm.CanDelete)
+            {
+                _vm.DeleteServerCommand.Execute(null);
+                e.Handled = true;
+            }
         }
     }
+
+    private void OnDeleteScriptItems(object? sender, RoutedEventArgs e) => _vm.DeleteScriptItems(ServersTree.SelectedItems);
 }

@@ -376,6 +376,12 @@ public sealed class ServerNode : TreeNode
         var f = Entry.Facts;
         var level = Level + 1;
         AddAttributes();
+        if (Entry.ScriptRuns.Count > 0)
+        {
+            var scripts = Section("script-history", L.F("Tree.ScriptHistory", Entry.ScriptRuns.Count), Symbol.Clock);
+            foreach (var run in Entry.ScriptRuns.AsEnumerable().Reverse())
+                scripts.Children.Add(new ScriptHistoryNode(Level + 2, run) { Parent = scripts });
+        }
         if (f?.InventoryUpdated == null)
         {
             Children.Add(new InfoNode(level, Loading ? L.Get("Tree.Loading") : f?.InventoryError ?? L.Get("Tree.NoData"), this));
@@ -468,7 +474,7 @@ public sealed class ServerNode : TreeNode
     private SectionNode Section(string key, string title, Symbol icon)
     {
         var s = new SectionNode(Level + 1, key, title, icon, this);
-        s.IsExpanded = _sectionState.TryGetValue(key, out var e) ? e : key is not ("services" or "cron" or "firewall");
+        s.IsExpanded = _sectionState.TryGetValue(key, out var e) ? e : key is not ("services" or "cron" or "firewall" or "script-history");
         Children.Add(s);
         return s;
     }
@@ -666,6 +672,18 @@ public sealed class AttributeNode : TreeNode
     public override string Address => Attribute.Value.ReplaceLineEndings(" ");
     public override string? Tip => Attribute.Value + "\n\n" +
                                    L.F("Attr.Tip", Attribute.Source ?? "—", Attribute.Updated.ToString("g", L.Culture));
+}
+
+public sealed class ScriptHistoryNode(int level, ScriptRun run) : TreeNode(level)
+{
+    public ScriptRun Run { get; } = run;
+    public override string Title => Run.ScriptName;
+    public override Symbol? Icon => Symbol.Clock;
+    public override string Address => Run.Started.ToString("g", L.Culture);
+    public override string Dot => Run.ExitCode == 0 ? "ok" : "bad";
+    public override string? Tip => string.Join("\n", new[] { Address, Run.Error }
+        .Where(s => !string.IsNullOrWhiteSpace(s)));
+    public override bool CanExpand => false;
 }
 
 public sealed class PortNode : TreeNode

@@ -72,6 +72,8 @@ public partial class ScriptRunWindow : Window
     private readonly Guid _serverId;
     private readonly ScriptEntry _script;
     private readonly ScriptManifest _manifest;
+    private readonly bool _uninstall;
+    private readonly ScriptEntry? _installer;
     private readonly ObservableCollection<ParamRow> _params = [];
     private readonly StringBuilder _pendingOutput = new();
     private readonly DispatcherTimer _flush;
@@ -79,11 +81,22 @@ public partial class ScriptRunWindow : Window
     private CancellationTokenSource? _cts;
     private DateTime _started;
 
-    public ScriptRunWindow(AppHost host, Guid serverId, ScriptEntry script)
+    public ScriptRunWindow(AppHost host, Guid serverId, ScriptEntry script, bool uninstall = false)
     {
         InitializeComponent();
         _host = host;
         _serverId = serverId;
+        _uninstall = uninstall;
+        if (uninstall)
+        {
+            _installer = script;
+            script = script.Clone();
+            script.Body = script.UninstallBody;
+            script.Kind = ScriptKind.Bash;
+            script.Name = L.F("ScriptRun.UninstallName", script.Name);
+            TerminalButton.IsVisible = false;
+            RunButton.Content = L.Get("Ctx.Uninstall");
+        }
         _script = script;
         _manifest = ScriptManifest.Parse(script.Body);
         Icon = IconFactory.Create(true);
@@ -108,7 +121,8 @@ public partial class ScriptRunWindow : Window
             OsWarning.IsVisible = true;
         }
 
-        var previous = server.ScriptRuns.LastOrDefault(r => r.ScriptId == script.Id)?.Params;
+        var previous = server.ScriptRuns.LastOrDefault(r => r.ScriptId == script.Id && !r.IsUninstall &&
+            (!uninstall || r.ExitCode == 0))?.Params;
         foreach (var (name, value) in _manifest.InitialValues(previous))
             _params.Add(new ParamRow(_manifest.Params.First(p => p.Name == name), value, UpdateVisibility));
         UpdateVisibility();
@@ -147,6 +161,8 @@ public partial class ScriptRunWindow : Window
     private async void OnRun(object? sender, RoutedEventArgs e)
     {
         if (!Validate(out var values) || Server() is not { } server) return;
+        if (_uninstall && MessageBox.Show(this, L.F("ScriptRun.UninstallConfirm", _script.Name, server.Name),
+                L.Get("Ctx.Uninstall"), MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
         _cts = new CancellationTokenSource();
         _started = DateTime.Now;
         SetRunning(true);
@@ -158,6 +174,7 @@ public partial class ScriptRunWindow : Window
         var run = new ScriptRun
         {
             ScriptId = _script.Id,
+            IsUninstall = _uninstall,
             ScriptName = _script.Name,
             Started = _started,
             Params = _params.Where(p => p.IsVisible && p.Param.Type != ScriptParamType.Secret).ToDictionary(p => p.Name, p => p.Value.Trim()),
@@ -271,7 +288,7 @@ public partial class ScriptRunWindow : Window
         bool addedPorts;
         try
         {
-            addedPorts = ScriptRunRecorder.Record(_host.Vault, server, _script, _manifest, run, values);
+            addedPorts = ScriptRunRecorder.Record(_host.Vault, server, _script, _manifest, run, values, _installer);
         }
         catch (Exception ex)
         {
@@ -313,7 +330,7 @@ public partial class ScriptRunWindow : Window
         TerminalButton.IsEnabled = !running;
         ParamsList.IsEnabled = !running;
         StopButton.IsVisible = running && _cts != null;
-        RunButton.Content = L.Get(running || _started == default ? "ScriptRun.Run" : "ScriptRun.RunAgain");
+        RunButton.Content = L.Get(_uninstall ? "Ctx.Uninstall" : running || _started == default ? "ScriptRun.Run" : "ScriptRun.RunAgain");
     }
 
     private void SetStatus(string text, bool isError = false)

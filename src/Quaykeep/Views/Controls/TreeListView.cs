@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Selection;
 using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
@@ -82,7 +83,7 @@ public sealed class TreeListView : UserControl
         _list = new ListBox
         {
             ItemsSource = _rows,
-            SelectionMode = SelectionMode.Single,
+            SelectionMode = SelectionMode.Multiple,
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(0),
@@ -91,7 +92,7 @@ public sealed class TreeListView : UserControl
         ScrollViewer.SetHorizontalScrollBarVisibility(_list, ScrollBarVisibility.Disabled);
         _list.SelectionChanged += (_, _) =>
         {
-            if (!_syncing) Select(_list.SelectedItem as TreeNode, scroll: false);
+            if (!_syncing) SetPrimary(_list.SelectedItem as TreeNode);
         };
         _list.AddHandler(PointerPressedEvent, OnRowPointerPressed, RoutingStrategies.Tunnel);
         _list.DoubleTapped += OnRowDoubleTapped;
@@ -125,6 +126,7 @@ public sealed class TreeListView : UserControl
 
     /// <summary>The selected node (follows the nodes' IsSelected both ways).</summary>
     public TreeNode? SelectedItem => _selected;
+    public IReadOnlyList<TreeNode> SelectedItems => _list.SelectedItems!.OfType<TreeNode>().ToArray();
 
     /// <summary>Row types whose double click means "open" (raised as <see cref="RowDoubleClicked"/>), not "expand".</summary>
     public Func<TreeNode, bool>? DoubleClickOpens { get; set; }
@@ -240,6 +242,9 @@ public sealed class TreeListView : UserControl
     private void Rebuild()
     {
         _rebuildQueued = false;
+        var selected = SelectedItems.ToHashSet();
+        var selectedKeys = selected.Select(ScriptItemKey).OfType<(Guid, string)>().ToHashSet();
+        var primaryKey = _selected == null ? null : ScriptItemKey(_selected);
         var visible = new List<TreeNode>();
         var all = new HashSet<TreeNode>();
         var lists = new HashSet<INotifyCollectionChanged>();
@@ -286,7 +291,14 @@ public sealed class TreeListView : UserControl
                 else _rows.Insert(i, visible[i]);
             }
             while (_rows.Count > visible.Count) _rows.RemoveAt(_rows.Count - 1);
-            _list.SelectedItem = _selected != null && _rows.Contains(_selected) ? _selected : null;
+            var restored = visible.Where(n => selected.Contains(n) || ScriptItemKey(n) is { } key && selectedKeys.Contains(key)).ToHashSet();
+            if (!restored.SetEquals(SelectedItems))
+            {
+                using var batch = _list.Selection.BatchUpdate();
+                _list.Selection.Clear();
+                for (var i = 0; i < _rows.Count; i++)
+                    if (restored.Contains(_rows[i])) _list.Selection.Select(i);
+            }
         }
         finally
         {
@@ -294,20 +306,31 @@ public sealed class TreeListView : UserControl
         }
 
         // a node marked selected while it was not watched yet (the view model rebuilt the tree), or the old one is gone
-        var wanted = all.FirstOrDefault(n => n.IsSelected && !ReferenceEquals(n, _selected)) ?? (_selected != null && all.Contains(_selected) ? _selected : null);
-        if (!ReferenceEquals(wanted, _selected)) Select(wanted, scroll: true);
+        var wanted = all.FirstOrDefault(n => n.IsSelected && !ReferenceEquals(n, _selected));
+        if (wanted != null) Select(wanted, scroll: true);
+        else SetPrimary(SelectedItems.FirstOrDefault(n => ReferenceEquals(n, _selected) || primaryKey != null && ScriptItemKey(n) == primaryKey)
+            ?? _list.SelectedItem as TreeNode);
     }
+
+    private static (Guid, string)? ScriptItemKey(TreeNode node) => node switch
+    {
+        AttributeNode { Server: { } server } a => (server.Entry.Id, "attribute:" + a.Attribute.Key),
+        ScriptHistoryNode { Server: { } server } h => (server.Entry.Id, "run:" + h.Run.Id),
+        _ => null,
+    };
 
     private void Select(TreeNode? node, bool scroll)
     {
-        if (ReferenceEquals(_selected, node))
-        {
-            if (node != null && !ReferenceEquals(_list.SelectedItem, node) && _rows.Contains(node)) Sync(node);
-            return;
-        }
+        Sync(node);
+        SetPrimary(node);
+        if (scroll && node != null && _rows.Contains(node)) _list.ScrollIntoView(node);
+    }
+
+    private void SetPrimary(TreeNode? node)
+    {
+        if (ReferenceEquals(_selected, node)) return;
         var old = _selected;
         _selected = node;
-        Sync(node);
         _syncing = true;
         try
         {
@@ -318,7 +341,6 @@ public sealed class TreeListView : UserControl
         {
             _syncing = false;
         }
-        if (scroll && node != null && _rows.Contains(node)) _list.ScrollIntoView(node);
         SelectedItemChanged?.Invoke(this, node);
     }
 
@@ -351,7 +373,8 @@ public sealed class TreeListView : UserControl
     private void OnRowPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsRightButtonPressed || RowOf(e.Source) is not { } node) return;
-        Select(node, scroll: false);
+        if (SelectedItems.Contains(node)) SetPrimary(node);
+        else Select(node, scroll: false);
         (_list.ContainerFromItem(node) as Control)?.Focus();
     }
 

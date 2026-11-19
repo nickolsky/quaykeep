@@ -287,6 +287,78 @@ public class ComposeScriptTests
 public class BuiltinScriptTests
 {
     [Fact]
+    public void Uninstall_Cleans_Only_The_Matching_Account_And_Preserves_Newer_Results()
+    {
+        var installer = new ScriptEntry
+        {
+            Name = "SFTP",
+            Body = "# @param SFTP_USER text required\n# @result SFTP_USER\n# @result SFTP_FOLDER\n",
+        };
+        var alice = new ScriptRun
+        {
+            ScriptId = installer.Id, ScriptName = installer.Name,
+            Params = new() { ["SFTP_USER"] = "alice" },
+            Results = new() { ["SFTP_USER"] = "alice", ["SFTP_FOLDER"] = "/files" },
+        };
+        var bob = new ScriptRun
+        {
+            ScriptId = installer.Id, ScriptName = installer.Name,
+            Params = new() { ["SFTP_USER"] = "bob" },
+            Results = new() { ["SFTP_FOLDER"] = "/files" },
+        };
+        var cleanup = new ScriptRun { ScriptId = installer.Id, IsUninstall = true };
+        var server = new ServerEntry
+        {
+            ScriptRuns = [alice, bob, cleanup],
+            Attributes =
+            [
+                new() { Key = "SFTP_USER", Value = "alice", Source = installer.Name },
+                new() { Key = "SFTP_FOLDER", Value = "/files", Source = installer.Name },
+                new() { Key = "KEEP", Value = "keep", Source = installer.Name, SourceScriptId = Guid.NewGuid() },
+            ],
+        };
+        var manifest = ScriptManifest.Parse("# @param SFTP_USER text required\n");
+        ScriptRunRecorder.RemoveInstallEntries(server, installer, manifest, new Dictionary<string, string> { ["SFTP_USER"] = "alice" });
+        Assert.Equal(new[] { bob.Id, cleanup.Id }, server.ScriptRuns.Select(r => r.Id));
+        Assert.Equal(new[] { "SFTP_FOLDER", "KEEP" }, server.Attributes.Select(a => a.Key));
+    }
+
+    [Fact]
+    public void Every_Builtin_Has_A_Paired_Uninstaller()
+    {
+        Assert.All(BuiltinScripts.All, script =>
+        {
+            Assert.DoesNotContain(".uninstall", script.Id);
+            Assert.StartsWith("#!/usr/bin/env bash\n", script.UninstallBody);
+            Assert.DoesNotContain("#@@", script.UninstallBody);
+            Assert.DoesNotContain("\r", script.UninstallBody);
+            Assert.False(string.IsNullOrWhiteSpace(ScriptManifest.Parse(script.UninstallBody).Description));
+        });
+    }
+
+    [Fact]
+    public void Uninstallers_Upgrade_Legacy_Builtins_And_Preserve_Custom_Edits()
+    {
+        var builtin = new BuiltinScript("demo", "echo install\n", UninstallBody: "echo uninstall\n");
+        var stock = new ScriptEntry { BuiltinId = builtin.Id, Body = builtin.Body, BuiltinHash = BuiltinScripts.Hash(builtin.Body) };
+        var edited = stock.Clone();
+        edited.Body += "echo custom path\n";
+        var data = new VaultData { Scripts = [stock] };
+        var customized = new VaultData { Scripts = [edited] };
+
+        Assert.True(BuiltinScripts.Sync(data, [builtin]));
+        Assert.Equal(builtin.UninstallBody, stock.UninstallBody);
+        Assert.False(BuiltinScripts.Sync(customized, [builtin]));
+        Assert.Empty(edited.UninstallBody);
+        Assert.True(BuiltinScripts.Sync(data, [builtin with { UninstallBody = "echo updated\n" }]));
+        Assert.Equal("echo updated\n", stock.UninstallBody);
+
+        stock.UninstallBody = "";
+        Assert.False(BuiltinScripts.Sync(data, [builtin]));
+        Assert.Empty(stock.UninstallBody);
+    }
+
+    [Fact]
     public void Vless_Scripts_Are_Embedded_With_Metadata()
     {
         Assert.Contains(BuiltinScripts.All, b => b.Id == "vless-reality-ubuntu");

@@ -382,6 +382,12 @@ The data folder can be overridden with the `QUAYKEEP_DATA` environment variable.
 
 ## Your own scripts with parameters and results
 
+Right-click a server and choose **Uninstall** to run a script paired with an installer. Docker apps keep their persistent data, images and Compose files for reinstall. The MTProxy uninstaller removes its service, configuration and client secret. The nginx and FTP/SFTP uninstallers keep user files. Docker Engine removal requires a Quaykeep ownership marker and an empty engine outside Swarm.
+
+In **Settings → Scripts**, select an installer and enter the companion Bash script on the **Uninstall (Bash)** tab. It uses the installer's OS and sudo settings, supports `@param` and `@result`, and pre-fills matching parameters from the most recent successful install on that server. Leave the tab empty to omit the script from the Uninstall menu.
+
+In the server tree, use Ctrl-click (Command-click on macOS) or Shift-click to select script results and history entries, then press **Delete**. A successful paired uninstall removes the matching install entries from that server’s tree. The uninstall run stays in history.
+
 Parameters and results are described by comments in the script itself; the run form is built from them:
 
 ```bash

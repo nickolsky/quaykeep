@@ -371,6 +371,10 @@ main(){
   local allow="${SFTP_ALLOW_PASSWORD:-1}" new_password="${SFTP_PASSWORD:-}"
 
   [[ "$SFTP_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "Invalid user name: $SFTP_USER"
+  local disabled=/var/lib/quaykeep/sftp-disabled
+  install -d -m 0700 "$disabled"
+  exec 8>"$disabled/$SFTP_USER.lock"
+  flock -n 8 || die "An SFTP account operation is already running"
   [[ "$SFTP_ROOT" == /* && "$SFTP_ROOT" =~ ^[A-Za-z0-9._/-]+$ && "$SFTP_ROOT" != *..* ]] ||
     die "The users folder must be an absolute path of letters, digits and . _ - /"
   case "$SFTP_ROOT" in
@@ -454,6 +458,15 @@ main(){
     warn "sshd has AllowUsers / AllowGroups: add ${SFTP_USER} (or the group ${GROUP}) there, otherwise sshd refuses the login"
   fi
   reload_sshd
+  if [[ -f "$disabled/$SFTP_USER" ]]; then
+    local previous_uid previous_expiry
+    IFS=: read -r previous_uid previous_expiry < "$disabled/$SFTP_USER"
+    if [[ "$previous_uid" == "$(id -u "$SFTP_USER")" && "$previous_expiry" =~ ^[0-9]*$ &&
+          "$(getent shadow "$SFTP_USER" | cut -d: -f8)" == 0 ]]; then
+      chage -E "${previous_expiry:--1}" -- "$SFTP_USER"
+    fi
+    rm -- "$disabled/$SFTP_USER"
+  fi
 
   local port host url i
   port="$("$SSHD" -T 2>/dev/null | awk 'tolower($1) == "port" { print $2; exit }' || true)"

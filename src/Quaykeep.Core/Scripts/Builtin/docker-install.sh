@@ -38,6 +38,9 @@ fetch(){ # url file
 os_id=""; os_like=""
 if [[ -r /etc/os-release ]]; then os_id="$(. /etc/os-release; echo "${ID:-}")"; os_like="$(. /etc/os-release; echo "${ID_LIKE:-}")"; fi
 
+had_engine=0
+if cmd docker || (cmd dpkg-query && dpkg-query -W -f='${Status}' docker-ce 2>/dev/null | grep -qx 'install ok installed') ||
+   (cmd rpm && rpm -q docker-ce >/dev/null 2>&1); then had_engine=1; fi
 if cmd docker && docker compose version >/dev/null 2>&1; then
   log "Docker is already installed"
 elif [[ " ${os_like} " == *" rhel "* && "$os_id" != centos && "$os_id" != rhel && "$os_id" != fedora ]] && cmd dnf; then
@@ -70,6 +73,11 @@ fi
 log "Checking"
 docker version --format 'Docker {{.Server.Version}} ({{.Server.Os}}/{{.Server.Arch}})' || die "docker does not answer"
 docker compose version || die "docker compose plugin is missing"
+if (( ! had_engine )) && { (cmd dpkg-query && dpkg-query -W -f='${Status}' docker-ce 2>/dev/null | grep -qx 'install ok installed') ||
+                           (cmd rpm && rpm -q docker-ce >/dev/null 2>&1); }; then
+  install -d -m 0755 /var/lib/quaykeep
+  install -m 0600 /dev/null /var/lib/quaykeep/docker-ce-installed
+fi
 docker run --rm hello-world >/dev/null 2>&1 && echo "hello-world: OK" || echo "WARNING: could not run hello-world (no internet access to Docker Hub?)"
 
 sshm_result DOCKER_VERSION "$(docker version --format '{{.Server.Version}}')"

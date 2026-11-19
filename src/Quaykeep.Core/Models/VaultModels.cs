@@ -129,6 +129,8 @@ public sealed class ServerAttribute
     public string Value { get; set; } = "";
     /// <summary>Name of the script that produced it.</summary>
     public string? Source { get; set; }
+    public Guid? SourceScriptId { get; set; }
+    public Guid? SourceRunId { get; set; }
     public DateTime Updated { get; set; } = DateTime.Now;
 
     public ServerAttribute Clone() => (ServerAttribute)MemberwiseClone();
@@ -136,7 +138,9 @@ public sealed class ServerAttribute
 
 public sealed class ScriptRun
 {
+    public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ScriptId { get; set; }
+    public bool IsUninstall { get; set; }
     public string ScriptName { get; set; } = "";
     public DateTime Started { get; set; }
     public DateTime? Finished { get; set; }
@@ -224,10 +228,12 @@ public sealed class ScriptEntry
     public bool UseSudo { get; set; } = true;
     public ScriptKind Kind { get; set; } = ScriptKind.Bash;
     public string Body { get; set; } = "";
+    public string UninstallBody { get; set; } = "";
     /// <summary>Shipped with the app (file name of the built-in script).</summary>
     public string? BuiltinId { get; set; }
     /// <summary>Hash of the built-in body this entry was last taken from; equal to the body's hash = not edited.</summary>
     public string? BuiltinHash { get; set; }
+    public string? BuiltinUninstallHash { get; set; }
 
     public static string[] SplitOs(string? filter) =>
         (filter ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

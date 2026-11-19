@@ -451,7 +451,7 @@ public sealed partial class McpServer
                      scripts.FirstOrDefault(x => string.Equals(x.BuiltinId, name, StringComparison.OrdinalIgnoreCase));
         if (script == null) return Task.FromResult(ToolResult.Fail(L.F("Mcp.NoScript", name, s.Name)));
         var manifest = ScriptManifest.Parse(script.Body);
-        var previous = s.ScriptRuns.LastOrDefault(r => r.ScriptId == script.Id)?.Params;
+        var previous = s.ScriptRuns.LastOrDefault(r => r.ScriptId == script.Id && !r.IsUninstall)?.Params;
         var values = manifest.InitialValues(previous);
         if (c.Args["params"] is JsonObject given)
             foreach (var (k, v) in given)

@@ -21,6 +21,7 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
     private string _scriptName = "";
     private string _scriptOs = "";
     private string _scriptBody = "";
+    private string _scriptUninstallBody = "";
     private bool _scriptSudo = true;
     private ScriptKind _scriptKind;
     private bool _dirty;
@@ -631,6 +632,12 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
         set => Edit(ref _scriptBody, value);
     }
 
+    public string ScriptUninstallBody
+    {
+        get => _scriptUninstallBody;
+        set => Edit(ref _scriptUninstallBody, value);
+    }
+
     public bool ScriptUseSudo
     {
         get => _scriptSudo;
@@ -696,8 +703,10 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
             {
                 if (d.Scripts.FirstOrDefault(s => s.BuiltinId == b.Id) is not { } s) continue;
                 s.Body = b.Body;
+                s.UninstallBody = b.UninstallBody;
                 s.OsFilter = b.Manifest.Os ?? s.OsFilter;
                 s.BuiltinHash = BuiltinScripts.Hash(b.Body);
+                s.BuiltinUninstallHash = BuiltinScripts.Hash(b.UninstallBody);
             }
             BuiltinScripts.Sync(d); // adds the deleted ones
         });
@@ -718,6 +727,7 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
         ScriptName = _selectedScript?.Name ?? "";
         ScriptOsFilter = _selectedScript?.OsFilter ?? "";
         ScriptBody = _selectedScript?.Body ?? "";
+        ScriptUninstallBody = _selectedScript?.UninstallBody ?? "";
         ScriptUseSudo = _selectedScript?.UseSudo ?? true;
         ScriptKindIndex = (int)(_selectedScript?.Kind ?? ScriptKind.Bash);
         BuildOsOptions();
@@ -770,6 +780,7 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
         var copy = _selectedScript.Clone();
         copy.Id = Guid.NewGuid();
         copy.Name += L.Get("Main.CopySuffix");
+        copy.BuiltinId = copy.BuiltinHash = copy.BuiltinUninstallHash = null;
         _host.Vault.Update(d => d.Scripts.Add(copy));
         OnVaultChanged();
         SelectedScript = Scripts.FirstOrDefault(x => x.Id == copy.Id);
@@ -799,6 +810,7 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
         var os = string.Join(",", _scriptOs.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(x => x.ToLowerInvariant()));
         var body = _scriptBody;
+        var uninstallBody = _scriptUninstallBody;
         var sudo = _scriptSudo;
         var kind = _scriptKind;
         _dirty = false;
@@ -809,6 +821,7 @@ public sealed class SettingsViewModel : ObservableObject, IDisposable
             s.Name = name;
             s.OsFilter = os;
             s.Body = body;
+            s.UninstallBody = uninstallBody;
             s.UseSudo = sudo;
             s.Kind = kind;
         });

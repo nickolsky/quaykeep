@@ -5,7 +5,7 @@ using Quaykeep.Core.Models;
 
 namespace Quaykeep.Core.Scripts;
 
-public sealed record BuiltinScript(string Id, string Body, ScriptKind Kind = ScriptKind.Bash)
+public sealed record BuiltinScript(string Id, string Body, ScriptKind Kind = ScriptKind.Bash, string UninstallBody = "")
 {
     public ScriptManifest Manifest => ScriptManifest.Parse(Body);
 }
@@ -23,12 +23,21 @@ public static class BuiltinScripts
     private static List<BuiltinScript> Load()
     {
         var asm = typeof(BuiltinScripts).Assembly;
-        return asm.GetManifestResourceNames()
-            .Where(n => n.StartsWith(Prefix, StringComparison.Ordinal) && (n.EndsWith(".sh", StringComparison.Ordinal) || n.EndsWith(".yml", StringComparison.Ordinal)))
+        var resources = asm.GetManifestResourceNames().ToHashSet(StringComparer.Ordinal);
+        return resources
+            .Where(n => n.StartsWith(Prefix, StringComparison.Ordinal) && !n.EndsWith(".uninstall.sh", StringComparison.Ordinal) &&
+                (n.EndsWith(".sh", StringComparison.Ordinal) || n.EndsWith(".yml", StringComparison.Ordinal)))
             .Order(StringComparer.Ordinal)
-            .Select(n => n.EndsWith(".yml", StringComparison.Ordinal)
-                ? new BuiltinScript(n[Prefix.Length..^4], Read(asm, n), ScriptKind.Compose)
-                : new BuiltinScript(n[Prefix.Length..^3], Read(asm, n)))
+            .Select(n =>
+            {
+                var compose = n.EndsWith(".yml", StringComparison.Ordinal);
+                var id = n[Prefix.Length..(compose ? ^4 : ^3)];
+                var uninstall = Prefix + id + ".uninstall.sh";
+                var body = resources.Contains(uninstall) ? Read(asm, uninstall) : "";
+                if (body.Contains("#@@compose-uninstall", StringComparison.Ordinal))
+                    body = body.Replace("#@@compose-uninstall", Read(asm, "Quaykeep.Core.Scripts.UninstallCompose.sh").TrimEnd(), StringComparison.Ordinal);
+                return new BuiltinScript(id, Read(asm, n), compose ? ScriptKind.Compose : ScriptKind.Bash, body);
+            })
             .ToList();
     }
 
@@ -53,6 +62,7 @@ public static class BuiltinScripts
         foreach (var b in builtins)
         {
             var hash = Hash(b.Body);
+            var uninstallHash = Hash(b.UninstallBody);
             var m = b.Manifest;
             var entry = data.Scripts.FirstOrDefault(s => s.BuiltinId == b.Id);
             if (entry == null)
@@ -65,8 +75,10 @@ public static class BuiltinScripts
                     UseSudo = true,
                     Kind = b.Kind,
                     Body = b.Body,
+                    UninstallBody = b.UninstallBody,
                     BuiltinId = b.Id,
                     BuiltinHash = hash,
+                    BuiltinUninstallHash = uninstallHash,
                 });
                 changed = true;
             }
@@ -76,6 +88,14 @@ public static class BuiltinScripts
                 entry.Kind = b.Kind;
                 entry.OsFilter = m.Os ?? entry.OsFilter;
                 entry.BuiltinHash = hash;
+                changed = true;
+            }
+            if (entry != null && (entry.BuiltinUninstallHash != null || Hash(entry.Body) == entry.BuiltinHash) &&
+                entry.BuiltinUninstallHash != uninstallHash &&
+                Hash(entry.UninstallBody) == (entry.BuiltinUninstallHash ?? Hash("")))
+            {
+                entry.UninstallBody = b.UninstallBody;
+                entry.BuiltinUninstallHash = uninstallHash;
                 changed = true;
             }
         }
@@ -93,5 +113,6 @@ public static class BuiltinScripts
     }
 
     /// <summary>True when a built-in copy still has the shipped text.</summary>
-    public static bool IsUnedited(ScriptEntry s) => s.BuiltinId != null && Hash(s.Body) == s.BuiltinHash;
+    public static bool IsUnedited(ScriptEntry s) => s.BuiltinId != null && Hash(s.Body) == s.BuiltinHash &&
+        Hash(s.UninstallBody) == (s.BuiltinUninstallHash ?? Hash(""));
 }

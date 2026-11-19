@@ -365,6 +365,8 @@
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=server}" />
                                     <MenuItem Header="{l:Tr Ctx.InstallDocker}" Command="{Binding InstallDockerCommand}"
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=server}" />
+                                    <MenuItem Header="{l:Tr Ctx.Uninstall}" Classes="entries" ItemsSource="{Binding UninstallItems}"
+                                              IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=server}" />
                                     <MenuItem Header="{Binding ForwardPeerHeader}" Command="{Binding GoToForwardPeerCommand}" FontWeight="SemiBold"
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=forward}" />
                                     <MenuItem Header="{l:Tr Ctx.PortForwards}" Command="{Binding PortForwardsCommand}"
@@ -468,8 +470,8 @@
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=attribute}" />
                                     <MenuItem Header="{l:Tr Qr.ShowMenu}" Command="{Binding ShowAttributeQrCommand}"
                                               IsVisible="{Binding SelectedAttributeHasQr}" />
-                                    <MenuItem Header="{l:Tr Ctx.DeleteAttribute}" Command="{Binding DeleteAttributeCommand}"
-                                              IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.Equal}, ConverterParameter=attribute}" />
+                                    <MenuItem Header="{l:Tr Ctx.DeleteScriptItems}" Click="OnDeleteScriptItems"
+                                              IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.OneOf}, ConverterParameter=attribute|script-history}" />
 
                                     <MenuItem Header="{l:Tr Ctx.AddServer}" Command="{Binding AddServerCommand}"
                                               IsVisible="{Binding SelectionKind, Converter={x:Static v:Conv.OneOf}, ConverterParameter=group|}" />
@@ -663,10 +665,19 @@
                                         </ComboBox>
                                         <CheckBox Content="{l:Tr Scripts.UseSudo}" IsChecked="{Binding ScriptUseSudo}" VerticalAlignment="Center" />
                                     </DockPanel>
-                                    <TextBox Margin="0,8,0,0" Text="{Binding ScriptBody}" Classes="mono"
-                                             AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
-                                             ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                             VerticalContentAlignment="Top" />
+                                    <TabControl Margin="0,8,0,0">
+                                        <TabItem Header="{l:Tr Ctx.Install}">
+                                            <TextBox Text="{Binding ScriptBody}" Classes="mono" AcceptsReturn="True" AcceptsTab="True"
+                                                     TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" />
+                                        </TabItem>
+                                        <TabItem Header="{l:Tr Scripts.UninstallBash}">
+                                            <TextBox Text="{Binding ScriptUninstallBody}" Classes="mono" AcceptsReturn="True" AcceptsTab="True"
+                                                     PlaceholderText="{l:Tr Scripts.UninstallOptional}" TextWrapping="NoWrap"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                     VerticalContentAlignment="Top" />
+                                        </TabItem>
+                                    </TabControl>
                                 </DockPanel>
                             </Grid>
 

@@ -99,11 +99,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PortMonitorCommand = new RelayCommand(OpenPortMonitor, HasServer);
         TogglePortCommand = new RelayCommand(TogglePort, () => SelectedNode is PortNode { CanMonitor: true });
         RunScriptCommand = new RelayCommand(p => RunScript(p as ScriptEntry), _ => HasServer());
+        RunUninstallScriptCommand = new RelayCommand(p => RunScript(p as ScriptEntry, uninstall: true), _ => HasServer());
         UptimeHistoryCommand = new RelayCommand(OpenUptimeHistory, () => SelectedServer != null);
         InstallDockerCommand = new RelayCommand(InstallDocker, () => HasServer() && SelectedServer!.Entry.Facts?.DockerAvailable != true);
         CopyAttributeCommand = new RelayCommand(CopyAttribute, () => SelectedNode is AttributeNode);
         ShowAttributeQrCommand = new RelayCommand(ShowAttributeQr, () => SelectedAttributeHasQr);
-        DeleteAttributeCommand = new RelayCommand(DeleteAttribute, () => SelectedNode is AttributeNode);
         ContainerLogsCommand = new RelayCommand(() => QuickAction(n => n is ContainerNode c ? ScriptRunner.DockerLogs(n.Server!.Entry, c.Info.Name) : null, "docker logs"), () => SelectedNode is ContainerNode);
         ContainerRestartCommand = new RelayCommand(() => ContainerAction(ContainerCommands.Restart, "Container.Restarting", "Container.Restarted"),
             () => SelectedNode is ContainerNode && !Busy);
@@ -178,6 +178,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<TreeNode> Roots { get; } = [];
     public ObservableCollection<KeyRow> Keys { get; } = [];
     public ObservableCollection<MenuEntry> InstallItems { get; } = [];
+    public ObservableCollection<MenuEntry> UninstallItems { get; } = [];
     public ObservableCollection<MenuEntry> MonitorItems { get; } = [];
     public ObservableCollection<MenuEntry> McpItems { get; } = [];
     public ObservableCollection<MenuEntry> CopyItems { get; } = [];
@@ -223,6 +224,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         FirewallRuleNode => "firewall",
         PortNode { Monitored: not null } => "port-on",
         AttributeNode => "attribute",
+        ScriptHistoryNode => "script-history",
         PortNode => "port-off",
         GroupNode => "group",
         null => "",
@@ -327,11 +329,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand PortMonitorCommand { get; }
     public ICommand TogglePortCommand { get; }
     public ICommand RunScriptCommand { get; }
+    public ICommand RunUninstallScriptCommand { get; }
     public ICommand UptimeHistoryCommand { get; }
     public ICommand InstallDockerCommand { get; }
     public ICommand CopyAttributeCommand { get; }
     public ICommand ShowAttributeQrCommand { get; }
-    public ICommand DeleteAttributeCommand { get; }
     public ICommand ContainerLogsCommand { get; }
     public ICommand ContainerRestartCommand { get; }
     public ICommand ContainerStartCommand { get; }
@@ -486,6 +488,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (!_host.Vault.IsUnlocked) return;
         var selectedId = SelectedServer?.Entry.Id;
         var selectedWasServer = SelectedNode is ServerNode;
+        var previousServers = _serverNodes.ToDictionary();
         var searching = !string.IsNullOrWhiteSpace(_search);
         var collapsed = _host.SettingsStore.Settings.CollapsedGroups.ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 
@@ -527,6 +530,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 node.SetUptime(_host.Uptime.Stats(s.Id, DateTime.UtcNow));
                 node.SetLoading(_host.Inventory.IsRunning(s.Id));
                 node.IsExpanded = _expandedServers.Contains(s.Id);
+                if (previousServers.TryGetValue(s.Id, out var previous))
+                {
+                    var sections = previous.Children.OfType<SectionNode>().ToDictionary(section => section.Key);
+                    foreach (var section in node.Children.OfType<SectionNode>())
+                        if (sections.TryGetValue(section.Key, out var oldSection)) section.IsExpanded = oldSection.IsExpanded;
+                }
                 _serverNodes[s.Id] = node;
                 (parent?.Children ?? Roots).Add(node);
             }
@@ -672,8 +681,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         PrepareMcpMenu();
         PrepareCopyMenu();
         InstallItems.Clear();
+        UninstallItems.Clear();
         var server = SelectedServer?.Entry;
         var scripts = _host.Vault.IsUnlocked ? _host.Vault.Data.Scripts.OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).ToList() : [];
+        foreach (var item in Grouped(scripts.Where(s => !string.IsNullOrWhiteSpace(s.UninstallBody)).ToList(),
+                     s => new MenuEntry(s.Name, RunUninstallScriptCommand, s)))
+            UninstallItems.Add(item);
+        if (UninstallItems.Count == 0)
+            UninstallItems.Add(new MenuEntry(L.Get("Scripts.NoUninstall"), OpenScriptsSettingsCommand));
         if (scripts.Count == 0)
         {
             InstallItems.Add(new MenuEntry(L.Get("Scripts.NoneMenu"), OpenScriptsSettingsCommand));
@@ -1234,10 +1249,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Opens the run window: parameters, live output, results saved to the server.</summary>
-    private void RunScript(ScriptEntry? script)
+    private void RunScript(ScriptEntry? script, bool uninstall = false)
     {
         if (script == null || SelectedServer == null) return;
-        ShowOwned(new ScriptRunWindow(_host, SelectedServer.Entry.Id, script.Clone()));
+        ShowOwned(new ScriptRunWindow(_host, SelectedServer.Entry.Id, script.Clone(), uninstall));
     }
 
     private void InstallDocker()
@@ -1268,13 +1283,27 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ShowOwned(new QrWindow(label, a.Attribute.Value));
     }
 
-    private void DeleteAttribute()
+    public bool DeleteScriptItems(IReadOnlyList<TreeNode> selection)
     {
-        if (SelectedNode is not AttributeNode { Server: { } server } a) return;
-        if (!Confirm(L.F("Attr.DeleteConfirm", a.Attribute.Label, server.Entry.Name))) return;
-        var id = server.Entry.Id;
-        var key = a.Attribute.Key;
-        _host.Vault.Update(d => d.Servers.FirstOrDefault(s => s.Id == id)?.Attributes.RemoveAll(x => x.Key == key));
+        var items = selection.Where(n => n is AttributeNode or ScriptHistoryNode && n.Server != null).ToList();
+        if (items.Count == 0 || !_host.Vault.IsUnlocked) return false;
+        var message = items is [AttributeNode { Server: { } host } a]
+            ? L.F("Attr.DeleteConfirm", a.Attribute.Label, host.Entry.Name)
+            : L.F("ScriptRun.DeleteEntriesConfirm", items.OfType<AttributeNode>().Count(), items.OfType<ScriptHistoryNode>().Count());
+        if (!Confirm(message) || !_host.Vault.IsUnlocked) return true;
+        var byServer = items.ToLookup(n => n.Server!.Entry.Id);
+        _host.Vault.Update(data =>
+        {
+            foreach (var server in data.Servers.Where(s => byServer.Contains(s.Id)))
+            {
+                var nodes = byServer[server.Id];
+                var attrs = nodes.OfType<AttributeNode>().Select(a => (a.Attribute.Key, a.Attribute.Updated)).ToHashSet();
+                var runs = nodes.OfType<ScriptHistoryNode>().Select(n => n.Run.Id).ToHashSet();
+                server.Attributes.RemoveAll(a => attrs.Contains((a.Key, a.Updated)));
+                server.ScriptRuns.RemoveAll(r => runs.Contains(r.Id));
+            }
+        });
+        return true;
     }
 
     // ---------- containers ----------
