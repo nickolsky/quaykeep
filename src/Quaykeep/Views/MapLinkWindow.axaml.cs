@@ -31,21 +31,31 @@ public partial class MapLinkWindow : DialogWindow
         _from = from;
         _to = to;
         Header.Text = L.F("Map.LinkHeader", from.Name, to?.Name ?? L.Get("Map.OtherAddress"));
+        PublicIpsText.Text = string.Join("\n", new[] { from.Server, to?.Server }.OfType<ServerEntry>()
+            .Select(server => PublicIpSummary.Format(server, includeName: true)));
         ListenLabel.Text = L.F("Map.PortOn", from.Name);
         TargetPortLabel.Text = L.F("Map.PortOn", to?.Name ?? L.Get("Map.Target"));
-        var choices = new List<string>();
+        ListenIpBox.ItemsSource = ForwardAddresses.Listen(from.Server!).ToList();
         if (to?.Server is { } target)
         {
-            if (AddressBook.AddressToward(from.Server!, target) is { } near) choices.Add(near);
-            if (AddressBook.PublicAddress(target) is { } pub) choices.Add(pub.ToString());
-            choices.AddRange((target.Facts?.Addresses ?? []).Select(a => a.Split('/')[0]).Where(a => IPAddress.TryParse(a, out var ip) && ip.AddressFamily == AddressFamily.InterNetwork));
-            if (!IPAddress.TryParse(target.Host, out _)) choices.Add(target.Host);
+            var choices = ForwardAddresses.Targets(target);
+            TargetBox.ItemsSource = choices.Select(a => ForwardTargetChoice.From(target, a, includeName: false)).ToList();
+            var near = AddressBook.AddressToward(from.Server!, target);
+            var preferred = choices.FirstOrDefault(a => a.Address == near) ??
+                choices.FirstOrDefault(a => a.Source is ForwardAddressSource.Interface or ForwardAddressSource.Ssh);
+            TargetBox.Text = preferred?.Address ?? "";
         }
-        else if (to != null) choices.Add(to.Address);
-        TargetBox.ItemsSource = choices.Distinct().ToList();
-        if (choices.Count > 0) TargetBox.SelectedIndex = 0;
+        else if (to != null)
+        {
+            TargetBox.ItemsSource = new[] { new ForwardTargetChoice(to.Address, to.Address) };
+            TargetBox.Text = to.Address;
+        }
         ProtoBox.SelectionChanged += OnChanged;
         ListenBox.TextChanged += OnChanged;
+        ListenIpBox.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Avalonia.Controls.ComboBox.TextProperty) Evaluate();
+        };
         TargetPortBox.TextChanged += OnChanged;
         TargetBox.SelectionChanged += OnChanged;
         TargetBox.LostFocus += OnChanged;
@@ -64,7 +74,8 @@ public partial class MapLinkWindow : DialogWindow
 
     private string[] Protocols => ProtoBox.SelectedIndex switch { 1 => ["udp"], 2 => ["tcp", "udp"], _ => ["tcp"] };
 
-    private string TargetText => (TargetBox.SelectedItem as string ?? TargetBox.Text ?? "").Trim();
+    private string TargetText => (TargetBox.Text ?? "").Trim();
+    private string ListenIp => (ListenIpBox.Text ?? "").Trim();
 
     private void OnChanged(object? sender, EventArgs e) => Evaluate();
 
@@ -77,6 +88,8 @@ public partial class MapLinkWindow : DialogWindow
         var targetPort = FirewallRules.NormalizePorts((TargetPortBox.Text ?? "").Trim());
         var arrive = targetPort.Length > 0 ? targetPort : listen;
         var ip = TargetText;
+        var listenIp = ListenIp;
+        var family = RelayCommands.ParseAddress(listenIp)?.AddressFamily;
         var problems = new List<string>();
         var warnings = new List<string>();
         _fix = null;
@@ -86,12 +99,15 @@ public partial class MapLinkWindow : DialogWindow
         if (listen.Length == 0 || ip.Length == 0) problems.Add(L.Get("Fwd.FillFields"));
         else
         {
-            var isIp = IPAddress.TryParse(ip, out _);
+            var isIp = IPAddress.TryParse(ip.Trim('[', ']'), out var literal);
+            var destination = isIp ? (ip.Contains('%') ? ip : literal!.ToString()) :
+                family == AddressFamily.InterNetwork ? "2001:db8::1" : "192.0.2.1";
             foreach (var p in Protocols)
             {
+                PortForward candidate;
                 try
                 {
-                    IptablesCommands.Validate(p, listen, isIp ? ip : "192.0.2.1", targetPort);
+                    candidate = PortForwardService.Validate(p, listen, destination, targetPort, listenIp);
                 }
                 catch (ArgumentException ex)
                 {
@@ -99,11 +115,10 @@ public partial class MapLinkWindow : DialogWindow
                     break;
                 }
                 foreach (var e in _map.Edges.Where(e => e.From.Id == from.Id && !e.Removing &&
-                                                        (e.Forward.Protocol == p || e.Forward.Protocol == "all") &&
-                                                        ForwardChains.Overlaps(e.Forward.ListenPort, listen)))
+                                                        PortForwardService.Conflicts(e.Forward, candidate)))
                     problems.Add(L.F("Map.PortTaken", from.Name, e.Forward.Protocol, e.Forward.ListenPort, e.To.Name, e.Forward.EffectiveTargetPort));
             }
-            if (Protocols.Contains("tcp") && ForwardChains.Overlaps(listen, from.Port.ToString()))
+            if (listenIp.Length == 0 && Protocols.Contains("tcp") && ForwardChains.Overlaps(listen, from.Port.ToString()))
                 problems.Add(L.F("Map.PortIsSsh", from.Port, from.Name));
             else if (Protocols.Contains("tcp") && from.Facts?.ListeningPorts.FirstOrDefault(l => ForwardChains.Overlaps(listen, l.Port.ToString())) is { } used)
                 warnings.Add(L.F("Map.PortUsed", from.Name, used.Port, used.Process ?? "?"));
@@ -111,12 +126,12 @@ public partial class MapLinkWindow : DialogWindow
             if (problems.Count == 0)
             {
                 var protocol = Protocols[0];
-                EntryText.Text = L.F("Map.Entry", from.Name, listen, FirewallCheck.AccessText(FirewallCheck.Access(_from.Firewall!, protocol, listen)));
-                var target = isIp ? _book.Find(ip, from) : _to?.Server;
+                EntryText.Text = L.F("Map.Entry", from.Name, listen, FirewallCheck.AccessText(FirewallCheck.Access(_from.Firewall!, protocol, listen, family)));
+                var target = isIp ? _book.Find(destination, from) : _to?.Server;
                 var node = target == null ? null : _map.NodeOf(target);
                 if (!isIp) VerdictText.Text = L.Get("Map.ResolvedOnAdd");
                 else if (node?.Firewall == null) VerdictText.Text = L.Get("Map.VerdictNotServer");
-                else Describe(node, protocol, arrive, AddressBook.SourceToward(from, ip), warnings);
+                else Describe(node, protocol, arrive, AddressBook.SourceToward(from, destination), warnings);
             }
         }
         ProblemText.Text = string.Join("\n", problems.Distinct());
@@ -149,25 +164,25 @@ public partial class MapLinkWindow : DialogWindow
     {
         Evaluate();
         if (!OkButton.IsEnabled) return;
-        var ip = TargetText;
-        if (!IPAddress.TryParse(ip, out _))
-        {
-            try
-            {
-                ip = Dns.GetHostAddresses(ip).FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)?.ToString()
-                     ?? throw new InvalidOperationException();
-            }
-            catch (Exception)
-            {
-                ProblemText.Text = L.F("Fwd.CannotResolve", TargetText);
-                ProblemText.IsVisible = true;
-                return;
-            }
-        }
+        var listenIp = ListenIp;
         var listen = FirewallRules.NormalizePorts((ListenBox.Text ?? "").Trim());
         var targetPort = FirewallRules.NormalizePorts((TargetPortBox.Text ?? "").Trim());
-        foreach (var p in Protocols)
-            Forwards.Add(new PlannedForward { FromId = _from.Server!.Id, Protocol = p, ListenPort = listen, TargetIp = ip, TargetPort = targetPort == listen ? "" : targetPort });
+        try
+        {
+            var ip = PortForwardService.ResolveTarget(TargetText, listenIp);
+            var forwards = Protocols.Select(p => PortForwardService.Validate(p, listen, ip, targetPort, listenIp)).ToList();
+            foreach (var f in forwards)
+            {
+                Forwards.Add(new PlannedForward { FromId = _from.Server!.Id, Protocol = f.Protocol, ListenPort = f.ListenPort,
+                    ListenIp = f.ListenIp, TargetIp = f.TargetIp, TargetPort = f.TargetPort });
+            }
+        }
+        catch (Exception ex)
+        {
+            ProblemText.Text = ex.Message;
+            ProblemText.IsVisible = true;
+            return;
+        }
         if (_fix != null && AllowBox.IsChecked == true)
             Allow = new PlannedAllow
             {

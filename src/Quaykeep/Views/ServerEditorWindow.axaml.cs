@@ -1,7 +1,11 @@
+using System.Net.Sockets;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Quaykeep.Core;
+using Quaykeep.Core.Forwarding;
 using Quaykeep.Core.Models;
+using Quaykeep.Core.Monitoring;
 using Quaykeep.Services;
 
 namespace Quaykeep.Views;
@@ -10,6 +14,11 @@ public partial class ServerEditorWindow : DialogWindow
 {
     private readonly AppHost _host;
     private readonly ServerEntry _server;
+    private string? _manualIpv4;
+    private string? _manualIpv6;
+    private bool _showingDetectedIps;
+    private bool _hasManualDraft;
+    private bool _refreshingPublicIps;
 
     /// <param name="server">A copy to edit; on success it holds the new values.</param>
     public ServerEditorWindow(AppHost host, ServerEntry server, bool isNew)
@@ -56,8 +65,124 @@ public partial class ServerEditorWindow : DialogWindow
         else if (server.Auth == AuthMode.None && server.Ssm) AuthSsmShell.IsChecked = true;
         else AuthPassword.IsChecked = true;
 
-        Opened += (_, _) => (isNew ? HostBox : NameBox).Focus();
+        _manualIpv4 = server.ManualPublicIpv4;
+        _manualIpv6 = server.ManualPublicIpv6;
+        _hasManualDraft = !server.AutoDetectPublicIps;
+        PublicIpv4Box.Text = _manualIpv4;
+        PublicIpv6Box.Text = _manualIpv6;
+        PublicIpIntervalBox.Text = server.PublicIpIntervalMinutes.ToString();
+        AutoPublicIpsBox.IsChecked = server.AutoDetectPublicIps;
+        AutoPublicIpsBox.IsCheckedChanged += (_, _) => RefreshPublicIps(editModeChanged: true);
+        ShowPublicIps(isNew ? null : server.Facts?.PublicIps);
+        RefreshPublicIpsButton.IsEnabled = !isNew && server.AutoDetectPublicIps && PublicIpMonitor.Supported(server);
+        if (!RefreshPublicIpsButton.IsEnabled)
+            ToolTip.SetTip(RefreshPublicIpsButton,
+                L.Get(isNew || !server.AutoDetectPublicIps ? "PublicIp.SaveFirst" : "PublicIp.DetectionHint"));
+        if (!isNew)
+        {
+            host.Vault.FactsChanged += OnPublicIpFactsChanged;
+            Closed += (_, _) => host.Vault.FactsChanged -= OnPublicIpFactsChanged;
+        }
+
+        Opened += (_, _) =>
+        {
+            RefreshPublicIps();
+            (isNew ? HostBox : NameBox).Focus();
+        };
     }
+
+    private void OnPublicIpFactsChanged(object? sender, Guid id)
+    {
+        if (id != _server.Id) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (IsVisible) RefreshPublicIps();
+        });
+    }
+
+    private void RefreshPublicIps(bool editModeChanged = false)
+    {
+        _host.Vault.TryRead(d =>
+        {
+            var saved = d.Servers.FirstOrDefault(s => s.Id == _server.Id);
+            var bind = saved == null ? [] : ForwardAddresses.InterfaceAddresses(saved).Distinct().ToArray();
+            return (Display: saved?.Display, Bind: bind, PublicIps: saved?.Facts?.PublicIps);
+        }, out var info);
+        PublicIpEndpoints.IsVisible = info.Display != null;
+        if (info.Display != null)
+            PublicIpEndpoints.Text = L.F("PublicIp.Endpoints", info.Display,
+                info.Bind.Length == 0 ? L.Get("PublicIp.Unavailable") : string.Join(", ", info.Bind));
+        if (editModeChanged || AutoPublicIpsBox.IsChecked == true) ShowPublicIps(info.PublicIps);
+    }
+
+    private async void OnRefreshPublicIps(object? sender, RoutedEventArgs e)
+    {
+        _refreshingPublicIps = true;
+        RefreshPublicIpsButton.IsEnabled = false;
+        PublicIpStatus.Text = L.Get("PublicIp.Checking");
+        try
+        {
+            await _host.RefreshPublicIpsAsync(_server.Id);
+        }
+        finally
+        {
+            _refreshingPublicIps = false;
+            RefreshPublicIpsButton.IsEnabled = true;
+            RefreshPublicIps();
+        }
+    }
+
+    private void ShowPublicIps(PublicIpObservation? observation)
+    {
+        var auto = AutoPublicIpsBox.IsChecked == true;
+        if (auto && !_showingDetectedIps)
+        {
+            _manualIpv4 = PublicIpv4Box.Text;
+            _manualIpv6 = PublicIpv6Box.Text;
+        }
+        else if (!auto && !_hasManualDraft)
+        {
+            _manualIpv4 ??= observation?.Ipv4;
+            _manualIpv6 ??= observation?.Ipv6;
+            _hasManualDraft = true;
+        }
+        _showingDetectedIps = auto;
+        PublicIpv4Box.IsReadOnly = PublicIpv6Box.IsReadOnly = auto;
+        PublicIpv4Box.Text = auto ? observation?.Ipv4 : _manualIpv4;
+        PublicIpv6Box.Text = auto ? observation?.Ipv6 : _manualIpv6;
+        if (_refreshingPublicIps) return;
+        PublicIpStatus.Text = observation == null ? L.Get("PublicIp.Pending") :
+            L.F("PublicIp.LastChecked", observation.CheckedUtc.ToLocalTime().ToString("g"));
+        if (observation == null) return;
+        if (observation.Issue != PublicIpCheckIssue.None)
+            PublicIpStatus.Text += "\n" + L.Get(observation.Issue switch
+            {
+                PublicIpCheckIssue.HostKey => "PublicIp.HostKey",
+                PublicIpCheckIssue.Ssh => "PublicIp.SshFailed",
+                PublicIpCheckIssue.CurlMissing => "PublicIp.CurlMissing",
+                _ => "PublicIp.Incomplete",
+            });
+        else
+        {
+            if (!observation.Ipv4Current)
+                PublicIpStatus.Text += "\n" + PublicLookupError("IPv4", observation.Ipv4CurlExitCode);
+            if (!observation.Ipv6Current)
+                PublicIpStatus.Text += "\n" + PublicLookupError("IPv6", observation.Ipv6CurlExitCode);
+        }
+        if (observation is { Ipv4Current: false, Ipv4: not null })
+            PublicIpStatus.Text += "\n" + L.Get("PublicIp.Ipv4LastKnown");
+        if (observation is { Ipv6Current: false, Ipv6: not null })
+            PublicIpStatus.Text += " " + L.Get("PublicIp.Ipv6LastKnown");
+    }
+
+    private static string PublicLookupError(string family, int? exitCode) => exitCode switch
+    {
+        6 => L.F("PublicIp.DnsFailed", family),
+        7 => L.F("PublicIp.ConnectFailed", family),
+        28 => L.F("PublicIp.TimedOut", family),
+        null => L.F("PublicIp.NoReply", family),
+        _ => L.F("PublicIp.CurlFailed", family, exitCode.Value),
+    };
 
     private void ReloadKeys(Guid? select)
     {
@@ -173,10 +298,37 @@ public partial class ServerEditorWindow : DialogWindow
             monitor = minutes;
         }
         var password = PasswordBox.Text ?? "";
+        var autoPublicIps = AutoPublicIpsBox.IsChecked == true;
+        var interval = _server.PublicIpIntervalMinutes;
+        var ipv4 = _server.ManualPublicIpv4;
+        var ipv6 = _server.ManualPublicIpv6;
+        if (autoPublicIps)
+        {
+            if (!int.TryParse(PublicIpIntervalBox.Text, out interval) || interval < 1)
+            {
+                ShowError(L.Get("PublicIp.BadInterval"));
+                return;
+            }
+        }
+        else
+        {
+            ipv4 = PublicIpObservation.Normalize(PublicIpv4Box.Text, AddressFamily.InterNetwork);
+            ipv6 = PublicIpObservation.Normalize(PublicIpv6Box.Text, AddressFamily.InterNetworkV6);
+            if (ipv4 == null && !string.IsNullOrWhiteSpace(PublicIpv4Box.Text) ||
+                ipv6 == null && !string.IsNullOrWhiteSpace(PublicIpv6Box.Text))
+            {
+                ShowError(L.Get("PublicIp.BadAddress"));
+                return;
+            }
+        }
 
         _server.Name = (NameBox.Text ?? "").Trim() is { Length: > 0 } n ? n : host;
         _server.Group = string.Join("/", ViewModels.MainViewModel.SplitGroup(GroupBox.Text ?? ""));
         _server.MonitorIntervalMinutes = monitor;
+        _server.AutoDetectPublicIps = autoPublicIps;
+        _server.PublicIpIntervalMinutes = interval;
+        _server.ManualPublicIpv4 = ipv4;
+        _server.ManualPublicIpv6 = ipv6;
         _server.McpAccess = (McpBox.SelectedItem as McpChoice)?.Access ?? McpAccess.Off;
         _server.McpFolders = McpFolderList.Items.OfType<string>().ToList();
         _server.Host = host;

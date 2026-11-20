@@ -43,7 +43,7 @@ public sealed class MapEdge
     /// <summary>Who may connect to the listen port on <see cref="From"/>.</summary>
     public required PortAccess Entry { get; init; }
 
-    public string Label => $"{Forward.Protocol} {Forward.ListenPort} → {Forward.EffectiveTargetPort}";
+    public string Label => $"{Forward.Protocol} {Forward.ListenEndpoint} → {Forward.EffectiveTargetPort}";
 }
 
 /// <summary>A forward drawn on the map, to be added on Apply.</summary>
@@ -53,10 +53,11 @@ public sealed class PlannedForward
     public Guid FromId { get; init; }
     public string Protocol { get; init; } = "tcp";
     public string ListenPort { get; init; } = "";
+    public string? ListenIp { get; init; }
     public string TargetIp { get; init; } = "";
     public string TargetPort { get; init; } = "";
 
-    public PortForward ToForward() => new() { Protocol = Protocol, ListenPort = ListenPort, TargetIp = TargetIp, TargetPort = TargetPort };
+    public PortForward ToForward() => new() { Protocol = Protocol, ListenPort = ListenPort, ListenIp = ListenIp, TargetIp = TargetIp, TargetPort = TargetPort };
 }
 
 /// <summary>A source to add to one of a server's own firewall rules on Apply (so that a forward into it gets through).</summary>
@@ -166,7 +167,8 @@ public sealed class NetworkMap
                 Key = planned != null ? "plan:" + planned.Id : $"{from.Id:N}|{f.Key}",
                 From = from, To = to, Forward = f, Planned = planned, Removing = removing, Source = source,
                 Verdict = to.Firewall is { } fw ? FirewallCheck.Check(fw, f.Protocol, f.EffectiveTargetPort, source) : null,
-                Entry = FirewallCheck.Access(nodes[MapNode.KeyOf(from)].Firewall!, f.Protocol, f.ListenPort),
+                Entry = FirewallCheck.Access(nodes[MapNode.KeyOf(from)].Firewall!, f.Protocol, f.ListenPort,
+                    f.ListenIp == null ? null : RelayCommands.ParseAddress(f.ListenIp)?.AddressFamily),
             };
         }
 
@@ -228,10 +230,12 @@ public sealed class NetworkMap
 
     private IEnumerable<MapEdge> Downstream(MapEdge e) =>
         Edges.Where(n => e.To.Server != null && n.From.Id == e.To.Server.Id && Same(n, e) &&
+                         ForwardChains.AcceptsAddress(n.Forward, e.Forward.TargetIp) &&
                          ForwardChains.Covers(n.Forward.ListenPort, e.Forward.EffectiveTargetPort));
 
     private IEnumerable<MapEdge> Upstream(MapEdge e) =>
-        Edges.Where(p => p.To.Server?.Id == e.From.Id && Same(p, e) && ForwardChains.Covers(e.Forward.ListenPort, p.Forward.EffectiveTargetPort));
+        Edges.Where(p => p.To.Server?.Id == e.From.Id && Same(p, e) && ForwardChains.AcceptsAddress(e.Forward, p.Forward.TargetIp) &&
+                         ForwardChains.Covers(e.Forward.ListenPort, p.Forward.EffectiveTargetPort));
 
     private static bool Same(MapEdge a, MapEdge b) =>
         a.Forward.Protocol == b.Forward.Protocol || a.Forward.Protocol == "all" || b.Forward.Protocol == "all";

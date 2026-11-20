@@ -92,6 +92,34 @@
             </StackPanel>
         </Expander>
 
+        <Expander Header="{l:Tr PublicIp.Section}" Margin="0,10,0,0" HorizontalAlignment="Stretch">
+            <StackPanel>
+                <SelectableTextBlock x:Name="PublicIpEndpoints" TextWrapping="Wrap" Margin="0,0,0,6" />
+                <CheckBox x:Name="AutoPublicIpsBox" Content="{l:Tr PublicIp.AutoDetect}" />
+                <Grid ColumnDefinitions="*,12,*">
+                    <StackPanel>
+                        <TextBlock Classes="fieldLabel" Text="{l:Tr PublicIp.Ipv4}" />
+                        <TextBox x:Name="PublicIpv4Box" PlaceholderText="{l:Tr PublicIp.Unavailable}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Classes="fieldLabel" Text="{l:Tr PublicIp.Ipv6}" />
+                        <TextBox x:Name="PublicIpv6Box" PlaceholderText="{l:Tr PublicIp.Unavailable}" />
+                    </StackPanel>
+                </Grid>
+                <StackPanel IsVisible="{Binding #AutoPublicIpsBox.IsChecked}">
+                    <TextBlock Classes="fieldLabel" Text="{l:Tr PublicIp.Interval}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBox x:Name="PublicIpIntervalBox" Width="90" />
+                        <Button x:Name="RefreshPublicIpsButton" Content="{l:Tr PublicIp.Refresh}" Click="OnRefreshPublicIps"
+                                ToolTip.ShowOnDisabled="True" />
+                    </StackPanel>
+                    <TextBlock x:Name="PublicIpStatus" Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <TextBlock Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap" Text="{l:Tr PublicIp.DetectionHint}" />
+                </StackPanel>
+                <TextBlock Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap" Text="{l:Tr PublicIp.SshHint}" />
+            </StackPanel>
+        </Expander>
+
         <Expander x:Name="McpExpander" Header="{l:Tr Editor.Mcp}" Margin="0,10,0,0" HorizontalAlignment="Stretch">
             <StackPanel>
                 <TextBlock Classes="fieldLabel" Text="{l:Tr Editor.McpAccess}" />

@@ -48,6 +48,7 @@ public partial class FirewallWindow : DialogWindow
         }
         else if (_servers.FirstOrDefault() is { } s) Title = L.F("Fw.Title", s.Name);
         Header.Text = _mode == Mode.Group ? Title : _servers.FirstOrDefault() is { } first ? $"{first.Name}  ({first.Display})" : "";
+        PublicIpsText.Track(this, _host.Vault, _servers.Select(s => s.Id).ToHashSet(), includeNames: _mode == Mode.Group);
     }
 
     /// <summary>Edits a preset; Apply goes to every server that uses it.</summary>

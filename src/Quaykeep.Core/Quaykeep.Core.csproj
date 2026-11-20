@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <EmbeddedResource Include="Forwarding\relay.py;Forwarding\relay-manage.sh" />
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />

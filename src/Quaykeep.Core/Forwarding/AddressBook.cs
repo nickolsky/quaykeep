@@ -65,7 +65,11 @@ public sealed class AddressBook
         foreach (var (addr, net) in Interfaces(from))
             if (addr.AddressFamily == target.AddressFamily && net.Contains(target)) return addr;
         if (IsPrivate(target)) return null; // reached over a network we know nothing about
-        return PublicAddress(from);
+        var publicAddress = PublicAddress(from);
+        if (publicAddress?.AddressFamily == target.AddressFamily) return publicAddress;
+        var candidates = Interfaces(from).Where(a => a.Addr.AddressFamily == target.AddressFamily && !IsPrivate(a.Addr))
+            .Select(a => a.Addr).Distinct().Take(2).ToArray();
+        return candidates is [var only] ? only : null;
     }
 
     /// <summary>Where <paramref name="from"/> should send to reach <paramref name="target"/>: the target's address on a network they share, else its public one.</summary>

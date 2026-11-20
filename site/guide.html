@@ -108,6 +108,15 @@
       an AWS SSM shell without SSH login on macOS and Linux.
       Passwords are passed to ssh through <code>SSH_ASKPASS</code> and keys through the agent: neither appears on a command line or on disk.</p>
 
+    <h3 id="public-ips">Public IP addresses</h3>
+    <p>In the server editor, open <b>Public IP addresses</b> to see the saved SSH endpoint, local listen addresses,
+      and outbound IPv4 and IPv6. Quaykeep checks them daily by default while the vault is unlocked, using trusted SSH
+      and <code>curl</code> on the server. Select <b>Refresh now</b> to check the saved server immediately and see any
+      lookup failures. You can set a shorter interval or turn off autodetection to enter the addresses manually. Copy either address from the
+      server menu, or see both in Port forwards and Firewall. In Port forwards, choose a local Listen IP and a reachable
+      IPv4 or IPv6 target, or type the addresses. The SSH host and the addresses a service listens on can differ from
+      the outbound addresses.</p>
+
     <h3 id="ssm">AWS SSM</h3>
     <p>For EC2 instances without an open SSH port: in the server's editor, <b>Advanced → Connect → Through AWS SSM</b>, put the
       instance ID (<code>i-0123…</code>) as the host and, if needed, the AWS CLI profile and region. The login is still

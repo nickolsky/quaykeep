@@ -899,9 +899,9 @@ public partial class NetworkMapWindow : Window
                     if (server == null) continue;
                     try
                     {
-                        IptablesCommands.Validate(p.Protocol, p.ListenPort, p.TargetIp, p.TargetPort);
+                        PortForwardService.Validate(p.Protocol, p.ListenPort, p.TargetIp, p.TargetPort, p.ListenIp);
                         Append(L.F("Fwd.Adding", p.Protocol, p.ListenPort, p.TargetIp, p.TargetPort.Length == 0 ? p.ListenPort : p.TargetPort) + $" ({server.Name})");
-                        _host.Forwards.Add(server, p.Protocol, p.ListenPort, p.TargetIp, p.TargetPort, Append);
+                        _host.Forwards.Add(server, p.Protocol, p.ListenPort, p.TargetIp, p.TargetPort, Append, p.ListenIp);
                         done.Add(p);
                     }
                     catch (Exception ex)

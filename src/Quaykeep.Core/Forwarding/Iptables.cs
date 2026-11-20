@@ -112,7 +112,7 @@ public static partial class IptablesCommands
     public static string Add(string id, string protocol, string listenPort, string targetIp, string targetPort) =>
         "set -e\n" + AddBody(id, protocol, listenPort, targetIp, targetPort) + "\necho " + OkMarker + "\n" + Persist;
 
-    private static string AddBody(string id, string protocol, string listenPort, string targetIp, string targetPort)
+    internal static string AddBody(string id, string protocol, string listenPort, string targetIp, string targetPort)
     {
         Validate(protocol, listenPort, targetIp, targetPort);
         var tport = targetPort.Length == 0 ? listenPort : targetPort;
@@ -132,7 +132,7 @@ public static partial class IptablesCommands
     /// <summary>Managed forwards: every rule tagged with its id; external ones: just their DNAT rule.</summary>
     public static string Remove(PortForward f) => "set -e\n" + RemoveBody(f) + "\necho " + OkMarker + "\n" + Persist;
 
-    private static string RemoveBody(PortForward f)
+    internal static string RemoveBody(PortForward f)
     {
         if (f.ManagedId is { } id) return RemoveById(id);
         if (f.Rule == null || !f.Rule.StartsWith("-A PREROUTING ", StringComparison.Ordinal) || f.Rule.Contains('\n'))
@@ -140,14 +140,60 @@ public static partial class IptablesCommands
         return "eval \"iptables -t nat " + Escape("-D " + f.Rule[3..]) + "\"";
     }
 
-    private static string RemoveById(string id)
+    internal static string RemoveById(string id)
     {
         if (!IdRegex().IsMatch(id)) throw new ArgumentException(L.F("Fwd.BadId", id));
         return $$"""
             for t in nat filter; do
               iptables -t "$t" -S | grep -E -- '--comment "?{{PortForward.CommentPrefix}}{{id}}"?( |$)' | sed 's/^-A /-D /' |
-              while IFS= read -r rule; do eval "iptables -t $t $rule"; done
+              while IFS= read -r rule; do eval "iptables -t $t $rule" || exit $?; done
             done
+            """;
+    }
+
+    /// <summary>Restore the tagged rules that were removed if a later deletion fails.</summary>
+    internal static string RemoveForConversion(PortForward old)
+    {
+        var remove = RemoveBody(old);
+        if (old.ManagedId is not { } id) return remove;
+        if (old.Rule == null) throw new ArgumentException(L.Get("Fwd.NoRule"));
+        return $$"""
+            saved_nat=$(iptables -t nat -S)
+            printf '%s\n' "$saved_nat" | grep -qxF -- {{RemoteShell.Quote(old.Rule)}} ||
+              { echo 'The selected DNAT rule changed.' >&2; exit 1; }
+            saved_filter=$(iptables -t filter -S)
+            restore() {
+              (
+                printf '%s\n' "$2" | awk -v tag='{{PortForward.CommentPrefix}}{{id}}' '
+                  $1 == "-A" {
+                    position = ++count[$2]
+                    for (i = 3; i < NF; i++)
+                      if ($i == "--comment" && ($(i+1) == tag || $(i+1) == "\"" tag "\"")) {
+                        print position, $0
+                        break
+                      }
+                  }' |
+                while read -r position rule; do
+                  args=${rule#-A }
+                  chain=${args%% *}
+                  match=${args#* }
+                  eval "iptables -t $1 -C $args" >/dev/null 2>&1 ||
+                    eval "iptables -t $1 -I $chain $position $match" || exit $?
+                done
+              )
+            }
+            set +e
+            (
+              set -e
+            {{remove}}
+            )
+            removed=$?
+            set -e
+            if [ "$removed" -ne 0 ]; then
+              restore nat "$saved_nat" || echo 'Could not restore the original NAT rules.' >&2
+              restore filter "$saved_filter" || echo 'Could not restore the original forwarding rules.' >&2
+              exit "$removed"
+            fi
             """;
     }
 

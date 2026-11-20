@@ -6,7 +6,12 @@
         Title="{l:Tr Map.LinkTitle}" Width="620" SizeToContent="Height" CanResize="False">
     <StackPanel Margin="22,16,22,18">
         <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <v:PublicIpSummary x:Name="PublicIpsText" TextWrapping="Wrap" ToolTip.Tip="{l:Tr PublicIp.SshHint}" />
         <TextBlock Classes="hint" Text="{l:Tr Map.LinkHint}" Margin="0,6,0,4" />
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+            <TextBlock Text="{l:Tr Fwd.ListenIp}" VerticalAlignment="Center" />
+            <ComboBox x:Name="ListenIpBox" IsEditable="True" MinWidth="195" ToolTip.Tip="{l:Tr Fwd.ListenIpTip}" />
+        </StackPanel>
 
         <Grid Margin="0,6,0,0" ColumnDefinitions="110,12,110,12,*,12,110">
             <StackPanel>
@@ -23,7 +28,13 @@
             </StackPanel>
             <StackPanel Grid.Column="4">
                 <TextBlock Classes="fieldLabel" Text="{l:Tr Map.TargetAddress}" />
-                <ComboBox x:Name="TargetBox" IsEditable="True" HorizontalAlignment="Stretch" />
+                <ComboBox x:Name="TargetBox" IsEditable="True" HorizontalAlignment="Stretch" ToolTip.Tip="{l:Tr Fwd.TargetTip}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Label}" ToolTip.Tip="{Binding Label}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </StackPanel>
             <StackPanel Grid.Column="6">
                 <TextBlock x:Name="TargetPortLabel" Classes="fieldLabel" TextTrimming="CharacterEllipsis" />

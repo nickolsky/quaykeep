@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using Quaykeep.Core.Models;
 
 namespace Quaykeep.Core.Forwarding;
@@ -9,7 +11,7 @@ public sealed record ForwardPoint(ServerEntry? Server, string Address, string Po
     public string? Listener { get; init; }
 
     public string Name => Server?.Name ?? Address;
-    public string Label => $"{Name}:{Port}";
+    public string Label => PortForward.Endpoint(Name, Port);
 }
 
 /// <summary>
@@ -23,16 +25,16 @@ public static class ForwardChains
     /// <summary>From <paramref name="from"/>'s listen port through every following hop.</summary>
     public static List<ForwardPoint> Downstream(ServerEntry from, PortForward forward, Func<string, ServerEntry?> byIp)
     {
-        var chain = new List<ForwardPoint> { new(from, from.Host, forward.ListenPort) };
-        var seen = new HashSet<(Guid, string)> { (from.Id, forward.ListenPort) };
+        var chain = new List<ForwardPoint> { new(from, forward.ListenIp ?? from.Host, forward.ListenPort) };
+        var seen = new HashSet<(Guid, string)> { (from.Id, forward.Key) };
         var f = forward;
         var port = forward.ListenPort;
         while (chain.Count <= MaxHops)
         {
             port = f.TargetPort.Length > 0 ? f.TargetPort : port;
             var server = byIp(f.TargetIp);
-            var next = server?.Facts?.Forwards.FirstOrDefault(g => SameProtocol(g, f) && Covers(g.ListenPort, port));
-            if (server == null || next == null || !seen.Add((server.Id, port)))
+            var next = server?.Facts?.Forwards.FirstOrDefault(g => SameProtocol(g, f) && AcceptsAddress(g, f.TargetIp) && Covers(g.ListenPort, port));
+            if (server == null || next == null || !seen.Add((server.Id, next.Key)))
             {
                 chain.Add(new ForwardPoint(server, f.TargetIp, port) { Listener = ListenerOn(server, port, f.Protocol) });
                 return chain;
@@ -58,7 +60,7 @@ public static class ForwardChains
             var into = Into(head.Server, head.Forward.ListenPort, head.Forward, all, byIp).ToList();
             if (into.Count != 1 || !seen.Add(into[0].From.Id)) break;
             head = into[0];
-            chain.Insert(0, new ForwardPoint(head.Server, head.Server.Host, head.Forward.ListenPort));
+            chain.Insert(0, new ForwardPoint(head.Server, head.Forward.ListenIp ?? head.Server.Host, head.Forward.ListenPort));
         }
         return chain;
     }
@@ -71,7 +73,8 @@ public static class ForwardChains
         {
             if (s.Id == target.Id || s.Facts == null) continue;
             foreach (var f in s.Facts.Forwards)
-                if (SameProtocol(f, like) && byIp(f.TargetIp)?.Id == target.Id && Covers(port, f.EffectiveTargetPort))
+                if (SameProtocol(f, like) && AcceptsAddress(like, f.TargetIp) &&
+                    byIp(f.TargetIp)?.Id == target.Id && Covers(port, f.EffectiveTargetPort))
                     yield return (s, f);
         }
     }
@@ -89,6 +92,14 @@ public static class ForwardChains
 
     private static bool SameProtocol(PortForward a, PortForward b) =>
         a.Protocol == b.Protocol || a.Protocol == "all" || b.Protocol == "all";
+
+    internal static bool AcceptsAddress(PortForward forward, string destination)
+    {
+        if (!IPAddress.TryParse(destination, out var target)) return false;
+        if (forward.ListenIp == null) return target.AddressFamily == AddressFamily.InterNetwork;
+        return IPAddress.TryParse(forward.ListenIp, out var listen) && listen.AddressFamily == target.AddressFamily &&
+               (listen.Equals(target) || listen.Equals(IPAddress.Any) || listen.Equals(IPAddress.IPv6Any));
+    }
 
     /// <summary>A port or range ("1000:2000") that takes in <paramref name="port"/> (a port or a range inside it).</summary>
     public static bool Covers(string range, string port)

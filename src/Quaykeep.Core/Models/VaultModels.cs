@@ -46,6 +46,15 @@ public sealed class ServerEntry
     public DateTime? LastConnected { get; set; }
     /// <summary>Availability check interval in minutes: null = global default, 0 = disabled.</summary>
     public int? MonitorIntervalMinutes { get; set; }
+    public bool AutoDetectPublicIps { get; set; } = true;
+    public int PublicIpIntervalMinutes { get; set; } = PublicIpObservation.DefaultIntervalMinutes;
+    public string? ManualPublicIpv4 { get; set; }
+    public string? ManualPublicIpv6 { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? PublicIpv4 => AutoDetectPublicIps ? Facts?.PublicIps?.Ipv4 : ManualPublicIpv4;
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? PublicIpv6 => AutoDetectPublicIps ? Facts?.PublicIps?.Ipv6 : ManualPublicIpv6;
     /// <summary>What the app learned about the server (OS, location, containers, forwards). Not user-edited.</summary>
     public ServerFacts? Facts { get; set; }
     /// <summary>TCP ports checked together with the server (e.g. 443 of a VPN, 2053 of a panel).</summary>

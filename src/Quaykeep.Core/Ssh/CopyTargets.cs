@@ -5,7 +5,7 @@ using Quaykeep.Core.Monitoring;
 
 namespace Quaykeep.Core.Ssh;
 
-public enum CopyKind { HostName, Ip, Password, PublicKey, SshCommand, Url }
+public enum CopyKind { HostName, Ip, Password, PublicKey, SshCommand, Url, PublicIpv4, PublicIpv6 }
 
 /// <param name="Url">For <see cref="CopyKind.Url"/>: the address to copy.</param>
 public sealed record CopyTarget(CopyKind Kind, string? Url = null);
@@ -21,6 +21,8 @@ public static class CopyTargets
     {
         // an SSM target is an instance id: no DNS name or address of its own
         var list = server.Ssm ? [] : new List<CopyTarget> { new(CopyKind.HostName), new(CopyKind.Ip) };
+        if (server.PublicIpv4 != null) list.Add(new(CopyKind.PublicIpv4));
+        if (server.PublicIpv6 != null) list.Add(new(CopyKind.PublicIpv6));
         if (!string.IsNullOrEmpty(server.Password)) list.Add(new(CopyKind.Password));
         if (hasKey) list.Add(new(CopyKind.PublicKey));
         list.Add(new(CopyKind.SshCommand));

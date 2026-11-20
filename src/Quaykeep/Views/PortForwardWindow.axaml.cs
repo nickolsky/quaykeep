@@ -4,7 +4,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Quaykeep.Core.Forwarding;
-using Quaykeep.Core.Geo;
 using Quaykeep.Core.Models;
 using Quaykeep.Services;
 using Quaykeep.ViewModels;
@@ -15,12 +14,6 @@ public partial class PortForwardWindow : Window
 {
     private sealed record Row(PortForward Forward, string Protocol, string ListenPort, string Target, string Chain, string ChainTip,
         string Interface, string Owner, bool Monitored, bool CanMonitor, string MonitorTip);
-
-    /// <summary>The editable combo box shows an item's ToString().</summary>
-    private sealed record TargetChoice(string Label, string Host)
-    {
-        public override string ToString() => Label;
-    }
 
     private readonly AppHost _host;
     private readonly ServerEntry _server;
@@ -37,15 +30,39 @@ public partial class PortForwardWindow : Window
         _server = server;
         _vm = vm;
         Header.Text = $"{server.Name}  ({server.Display})";
-        TargetBox.ItemsSource = host.Vault.Data.Servers.Where(s => s.Id != server.Id)
-            .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
-            .Select(s => new TargetChoice($"{s.Name}  ({s.Host})", s.Host)).ToList();
+        PublicIpsText.Track(this, host.Vault, new HashSet<Guid> { server.Id });
+        RefreshListenChoices();
+        ListenIpBox.DropDownOpened += (_, _) => RefreshListenChoices();
+        RefreshTargetChoices();
+        TargetBox.DropDownOpened += (_, _) => RefreshTargetChoices();
         ShowForwards(server.Facts?.Forwards ?? []);
         Closing += (_, e) => e.Cancel = _running;
         Loaded += (_, _) => OnRefresh(this, new RoutedEventArgs());
         ForwardsGrid.DoubleTapped += OnRowDoubleClick;
         // the check boxes inside the template: their clicks bubble up here
         ForwardsGrid.AddHandler(Button.ClickEvent, (_, e) => { if (e.Source is CheckBox cb) OnMonitorClick(cb, e); });
+    }
+
+    private void RefreshListenChoices()
+    {
+        if (!_host.Vault.TryRead(d => ForwardAddresses.Listen(d.Servers.FirstOrDefault(s => s.Id == _server.Id) ?? _server)
+                .ToList(), out var choices)) return;
+        if (ListenIpBox.ItemsSource is List<string> current && current.SequenceEqual(choices)) return;
+        var text = ListenIpBox.Text;
+        ListenIpBox.ItemsSource = choices;
+        ListenIpBox.Text = text;
+    }
+
+    private void RefreshTargetChoices()
+    {
+        if (!_host.Vault.TryRead(d => d.Servers.Where(s => s.Id != _server.Id)
+                .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
+                .SelectMany(s => ForwardAddresses.Targets(s).Select(a => ForwardTargetChoice.From(s, a, includeName: true)))
+                .ToList(), out var choices)) return;
+        if (TargetBox.ItemsSource is List<ForwardTargetChoice> current && current.SequenceEqual(choices)) return;
+        var text = TargetBox.Text;
+        TargetBox.ItemsSource = choices;
+        TargetBox.Text = text;
     }
 
     private void ShowForwards(List<PortForward> forwards)
@@ -58,13 +75,13 @@ public partial class PortForwardWindow : Window
             var name = _vm.TargetName(f.TargetIp);
             var chain = _vm.ForwardChain(_server, f);
             var single = int.TryParse(f.ListenPort, out var port);
-            var canMonitor = single && f.Protocol == "tcp";
-            return new Row(f, f.Protocol, f.ListenPort,
-                $"{name}:{f.EffectiveTargetPort}" + (name != f.TargetIp ? $"  ({f.TargetIp})" : ""),
+            var canMonitor = !f.IsRelay && single && f.Protocol == "tcp";
+            return new Row(f, f.Protocol, f.ListenEndpoint,
+                PortForward.Endpoint(name, f.EffectiveTargetPort) + (name != f.TargetIp ? $"  ({f.TargetIp})" : ""),
                 ForwardChains.Format(chain), ForwardChains.FormatLines(chain),
                 f.InInterface ?? "", f.Managed ? "Quaykeep" : L.Get("Fwd.External"),
                 canMonitor && monitored.Contains(port), canMonitor,
-                canMonitor ? L.F("Fwd.MonitorTip", f.ListenPort) : L.Get(single ? "Fwd.MonitorUdp" : "Fwd.MonitorRange"));
+                canMonitor ? L.F("Fwd.MonitorTip", f.ListenPort) : L.Get(f.IsRelay ? "Fwd.MonitorRelay" : single ? "Fwd.MonitorUdp" : "Fwd.MonitorRange"));
         }).ToList();
         if (selected != null) ForwardsGrid.SelectedItem = ((List<Row>)ForwardsGrid.ItemsSource!).FirstOrDefault(r => r.Forward.Key == selected);
         if (_editing != null && forwards.All(f => f.Key != _editing.Key)) StopEditing(); // changed or removed meanwhile
@@ -126,7 +143,8 @@ public partial class PortForwardWindow : Window
     private async void OnAdd(object? sender, RoutedEventArgs e)
     {
         var listen = (ListenBox.Text ?? "").Trim();
-        var targetText = (TargetBox.SelectedItem as TargetChoice)?.Host ?? (TargetBox.Text ?? "").Trim();
+        var listenIp = (ListenIpBox.Text ?? "").Trim();
+        var targetText = (TargetBox.Text ?? "").Trim();
         var targetPort = (TargetPortBox.Text ?? "").Trim();
         string[] protocols = ProtoBox.SelectedIndex switch { 1 => ["udp"], 2 => ["tcp", "udp"], _ => ["tcp"] };
         if (listen.Length == 0 || targetText.Length == 0)
@@ -138,14 +156,20 @@ public partial class PortForwardWindow : Window
         var old = _editing;
         var ok = await Run(log =>
         {
-            var ip = GeoIpService.ResolveAsync(targetText).GetAwaiter().GetResult() ?? ResolveAny(targetText);
-            foreach (var p in protocols) IptablesCommands.Validate(p, listen, ip, targetPort);
+            var ip = PortForwardService.ResolveTarget(targetText, listenIp);
+            foreach (var p in protocols) PortForwardService.Validate(p, listen, ip, targetPort, listenIp);
             if (old != null)
             {
                 log(L.F("Fwd.Changing", old.Protocol, old.ListenPort, string.Join("+", protocols), listen, ip, targetPort.Length == 0 ? listen : targetPort));
-                var changed = _host.Forwards.Replace(server, old, protocols, listen, ip, targetPort, log);
+                var changed = _host.Forwards.Replace(server, old, protocols, listen, ip, targetPort, log, listenIp);
                 log(L.Get("Fwd.Changed"));
                 return changed;
+            }
+            if (listenIp.Length > 0)
+            {
+                var added = _host.Forwards.AddRelays(server, protocols, listenIp, listen, ip, targetPort, log);
+                log(L.Get("Fwd.Added"));
+                return added;
             }
             ForwardChange? last = null;
             foreach (var p in protocols)
@@ -159,7 +183,7 @@ public partial class PortForwardWindow : Window
         if (!ok) return;
         if (old != null)
         {
-            MoveMonitoring(old, listen, protocols);
+            if (!old.IsRelay) MoveMonitoring(old, listen, listenIp.Length == 0 ? protocols : []);
             StopEditing();
         }
     }
@@ -174,7 +198,7 @@ public partial class PortForwardWindow : Window
         {
             var s = d.Servers.FirstOrDefault(x => x.Id == id);
             var m = s?.MonitoredPorts.FirstOrDefault(p => p.Port == was);
-            if (s == null || m == null || _forwards.Any(f => f.ListenPort == old.ListenPort && f.Protocol == "tcp")) return;
+            if (s == null || m == null || _forwards.Any(f => !f.IsRelay && f.ListenPort == old.ListenPort && f.Protocol == "tcp")) return;
             s.MonitoredPorts.Remove(m);
             if (protocols.Contains("tcp") && int.TryParse(listen, out var now) && s.MonitoredPorts.All(p => p.Port != now))
                 s.MonitoredPorts.Add(new MonitoredPort { Port = now, Name = m.Name });
@@ -201,15 +225,10 @@ public partial class PortForwardWindow : Window
         _editing = f;
         ProtoBox.SelectedIndex = f.Protocol == "udp" ? 1 : 0;
         ListenBox.Text = f.ListenPort;
-        var choices = (List<TargetChoice>)TargetBox.ItemsSource!;
-        var server = _vm.ServerByIp(f.TargetIp);
-        var choice = choices.FirstOrDefault(c => c.Host == f.TargetIp) ?? (server == null ? null : choices.FirstOrDefault(c => c.Host == server.Host));
-        if (choice != null) TargetBox.SelectedItem = choice;
-        else
-        {
-            TargetBox.SelectedItem = null;
-            TargetBox.Text = f.TargetIp;
-        }
+        ListenIpBox.SelectedItem = null;
+        ListenIpBox.Text = f.ListenIp ?? "";
+        TargetBox.SelectedItem = null;
+        TargetBox.Text = f.TargetIp;
         TargetPortBox.Text = f.TargetPort == f.ListenPort ? "" : f.TargetPort;
         FormTitle.Text = L.F("Fwd.EditTitle", f.Protocol, f.ListenPort, _vm.TargetName(f.TargetIp), f.EffectiveTargetPort);
         AddButton.Content = L.Get("Fwd.Save");
@@ -224,21 +243,13 @@ public partial class PortForwardWindow : Window
         FormTitle.Text = L.Get("Fwd.AddTitle");
         AddButton.Content = L.Get("Fwd.Add");
         CancelEditButton.IsVisible = false;
-        ListenBox.Text = TargetPortBox.Text = "";
+        ListenIpBox.SelectedItem = null;
+        ListenBox.Text = TargetPortBox.Text = ListenIpBox.Text = "";
         TargetBox.SelectedItem = null;
         TargetBox.Text = "";
     }
 
     private void OnCancelEdit(object? sender, RoutedEventArgs e) => StopEditing();
-
-    /// <summary>Private addresses are fine as forward targets (GeoIP resolution skips them).</summary>
-    private static string ResolveAny(string host)
-    {
-        if (System.Net.IPAddress.TryParse(host, out var ip)) return ip.ToString();
-        var addr = System.Net.Dns.GetHostAddresses(host)
-            .FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
-        return addr?.ToString() ?? throw new InvalidOperationException(L.F("Fwd.CannotResolve", host));
-    }
 
     // ---------- monitoring ----------
 
@@ -248,7 +259,7 @@ public partial class PortForwardWindow : Window
     /// </summary>
     private void OnMonitorClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is not CheckBox { DataContext: Row row } || !int.TryParse(row.ListenPort, out var port)) return;
+        if (sender is not CheckBox { DataContext: Row { CanMonitor: true } row } || !int.TryParse(row.Forward.ListenPort, out var port)) return;
         var on = !row.Monitored;
         var id = _server.Id;
         var name = "→ " + row.Target.Split("  (")[0];
@@ -270,7 +281,7 @@ public partial class PortForwardWindow : Window
     {
         if (ForwardsGrid.SelectedItem is not Row row) return;
         var f = row.Forward;
-        if (MessageBox.Show(this, L.F("Fwd.DeleteConfirm", f.Protocol, f.ListenPort, row.Target), Title ?? "",
+        if (MessageBox.Show(this, L.F("Fwd.DeleteConfirm", f.Protocol, f.ListenEndpoint, row.Target), Title ?? "",
                 MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
             return;
         var server = _server;

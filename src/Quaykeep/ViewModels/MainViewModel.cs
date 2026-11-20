@@ -651,7 +651,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public string DescribeForward(ServerEntry from, PortForward p)
     {
         var hops = ForwardChains.Downstream(from, p, ServerByIp).Skip(1).ToList();
-        var text = $"{p.Protocol} {p.ListenPort} → " + string.Join(" → ", hops.Select(h => h.Label));
+        var text = $"{p.Protocol} {p.ListenEndpoint} → " + string.Join(" → ", hops.Select(h => h.Label));
         return hops.Count > 0 && hops[^1].Listener is { } l ? $"{text} ({l})" : text;
     }
 
@@ -846,6 +846,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _host.Vault.Update(d => d.Servers.Add(entry));
         Select(entry.Id);
         _ = _host.Geo.RefreshAsync(entry.Id);
+        _host.CheckPublicIps();
         _host.Health.CheckNow(entry.Id);
     }
 
@@ -871,9 +872,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             copy.Attributes = d.Servers[i].Attributes; // a script may have finished while the editor was open
             copy.ScriptRuns = d.Servers[i].ScriptRuns;
             if (hostChanged && copy.Facts != null) (copy.Facts.Geo, copy.Facts.Whois) = (null, null);
+            if (copy.Facts != null && (!PublicIpMonitor.SameEndpoint(before, copy) ||
+                                      !before.AutoDetectPublicIps && copy.AutoDetectPublicIps))
+                copy.Facts.PublicIps = null;
             d.Servers[i] = copy;
         });
         _ = _host.Geo.RefreshAsync(copy.Id);
+        _host.CheckPublicIps();
         _host.Health.CheckNow(copy.Id);
 
         // a new address: firewall rules and forwards elsewhere that name the old one can follow it
@@ -898,6 +903,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (new ServerEditorWindow(_host, copy, isNew: true) { Owner = Owner }.ShowDialog() != true) return;
         _host.Vault.Update(d => d.Servers.Add(copy));
         Select(copy.Id);
+        _host.CheckPublicIps();
     }
 
     private void DeleteServer()
@@ -925,6 +931,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 CopyKind.HostName => L.Get(CopyTargets.IsIp(server.Host) ? "Copy.HostNameReverse" : "Copy.HostName"),
                 CopyKind.Ip => L.Get("Copy.Ip"),
+                CopyKind.PublicIpv4 => L.Get("Copy.PublicIpv4"),
+                CopyKind.PublicIpv6 => L.Get("Copy.PublicIpv6"),
                 CopyKind.Password => L.Get("Copy.Password"),
                 CopyKind.PublicKey => L.Get("Copy.PublicKey"),
                 CopyKind.SshCommand => L.Get("Copy.SshCommand"),
@@ -948,6 +956,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                     break;
                 case CopyKind.Ip:
                     Copied(await CopyTargets.ResolveIpAsync(host));
+                    break;
+                case CopyKind.PublicIpv4 when server.PublicIpv4 is { } ipv4:
+                    Copied(ipv4);
+                    break;
+                case CopyKind.PublicIpv6 when server.PublicIpv6 is { } ipv6:
+                    Copied(ipv6);
                     break;
                 case CopyKind.Password when !string.IsNullOrEmpty(server.Password):
                     CopySecret(server.Password);

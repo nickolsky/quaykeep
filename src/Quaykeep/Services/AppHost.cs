@@ -32,6 +32,8 @@ public sealed class AppHost : IDisposable
     private readonly Dispatcher _ui = Dispatcher.UIThread;
     private readonly DispatcherTimer _idleTimer;
     private readonly DispatcherTimer _backupTimer;
+    private readonly DispatcherTimer _publicIpTimer;
+    private CancellationTokenSource? _publicIpChecks;
     private readonly SessionLockMonitor _sessionLock = new();
     private TrayIcon? _tray;
     private GlobalHotkey? _hotkey;
@@ -51,6 +53,7 @@ public sealed class AppHost : IDisposable
         Inventory = new ServerInventoryService(Vault, Ssh);
         Geo = new GeoIpService(Vault, SettingsStore);
         Health = new HealthMonitor(Vault, SettingsStore, Uptime);
+        PublicIps = new PublicIpMonitor(Vault, Ssh, KnownHosts);
         Metrics = new MetricsCollector(Ssh);
         Forwards = new PortForwardService(Vault, Ssh);
         Tunnels = new TunnelService(Vault, Ssh);
@@ -63,6 +66,11 @@ public sealed class AppHost : IDisposable
 
         Health.WentDown += (_, t) => _ui.Post(() => OnServerDown(t));
         Health.PortWentDown += (_, t) => _ui.Post(() => OnPortDown(t));
+        PublicIps.AddressChanged += (_, change) => _ui.Post(() =>
+        {
+            if (Vault.IsUnlocked)
+                Notify(L.Get("PublicIp.Changed"), L.F("PublicIp.Change", change.ServerName, change.Previous, change.Current));
+        });
         Health.ServerOnline += (_, s) =>
         {
             if (SettingsStore.Settings.CollectMetrics && KnownHosts.IsKnown(s.Host, s.Port)) _ = Metrics.CollectAsync(s);
@@ -73,6 +81,8 @@ public sealed class AppHost : IDisposable
         _idleTimer.Tick += (_, _) => CheckIdle();
         _backupTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
         _backupTimer.Tick += (_, _) => RunAutoBackup();
+        _publicIpTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _publicIpTimer.Tick += (_, _) => CheckPublicIps();
         _sessionLock.Locked += OnSessionLocked;
     }
 
@@ -86,6 +96,7 @@ public sealed class AppHost : IDisposable
     public ServerInventoryService Inventory { get; }
     public GeoIpService Geo { get; }
     public HealthMonitor Health { get; }
+    private PublicIpMonitor PublicIps { get; }
     public UptimeLog Uptime { get; } = new();
     public MetricsCollector Metrics { get; }
     public PortForwardService Forwards { get; }
@@ -288,6 +299,7 @@ public sealed class AppHost : IDisposable
     {
         if (!Vault.IsUnlocked)
         {
+            StopPublicIpChecks();
             Agent.ClearCache();
             Health.Stop();
             Metrics.Clear();
@@ -298,12 +310,31 @@ public sealed class AppHost : IDisposable
         {
             SyncBuiltinScripts();
             Health.Start();
+            _publicIpChecks ??= new CancellationTokenSource();
+            _publicIpTimer.Start();
+            CheckPublicIps();
             RefreshBackground(force: false);
             // running tunnels survive a lock; the ones marked "start with Quaykeep" open on every unlock (a no-op when on)
             Tunnels.StartAutostart();
         }
         _tray?.UpdateState();
         StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void CheckPublicIps()
+    {
+        if (_publicIpChecks is { } checks) _ = PublicIps.CheckDueAsync(checks.Token);
+    }
+
+    public Task RefreshPublicIpsAsync(Guid id) => _publicIpChecks is { } checks
+        ? PublicIps.CheckNowAsync(id, checks.Token) : Task.CompletedTask;
+
+    private void StopPublicIpChecks()
+    {
+        _publicIpTimer.Stop();
+        _publicIpChecks?.Cancel();
+        _publicIpChecks?.Dispose();
+        _publicIpChecks = null;
     }
 
     /// <summary>Adds the scripts shipped with the app and updates the ones the user did not edit.</summary>
@@ -347,6 +378,7 @@ public sealed class AppHost : IDisposable
     {
         _ = Inventory.RefreshAsync(id, interactive: true);
         _ = Geo.RefreshAsync(id, force: true);
+        _ = RefreshPublicIpsAsync(id);
         Health.CheckNow(id);
     }
 
@@ -637,6 +669,7 @@ public sealed class AppHost : IDisposable
 
     public void Dispose()
     {
+        StopPublicIpChecks();
         _sessionLock.Dispose();
         _idleTimer.Stop();
         _backupTimer.Stop();

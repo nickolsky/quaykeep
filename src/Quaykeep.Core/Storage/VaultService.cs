@@ -141,12 +141,12 @@ public sealed class VaultService
     }
 
     /// <summary>Updates collected facts of a server (no backup copy). Returns false if locked or the server is gone.</summary>
-    public bool UpdateFacts(Guid serverId, Action<ServerFacts> change)
+    public bool UpdateFacts(Guid serverId, Action<ServerFacts> change, Predicate<ServerEntry>? when = null)
     {
         lock (_sync)
         {
             var server = _data?.Servers.FirstOrDefault(s => s.Id == serverId);
-            if (server == null) return false;
+            if (server == null || when?.Invoke(server) == false) return false;
             change(server.Facts ??= new ServerFacts());
             SaveLocked(backup: false);
         }

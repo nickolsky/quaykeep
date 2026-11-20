@@ -25,6 +25,8 @@ public sealed class ServerFacts
     public List<ListeningPort> ListeningPorts { get; set; } = [];
     /// <summary>The server's own addresses with their prefix ("10.0.0.5/24"; ip -o addr, global scope, no Docker bridges).</summary>
     public List<string> Addresses { get; set; } = [];
+    /// <summary>Public addresses observed from outbound connections made by this server.</summary>
+    public PublicIpObservation? PublicIps { get; set; }
     public GeoInfo? Geo { get; set; }
     /// <summary>The registry's record of the server's IP (RDAP): read once, again when the IP changes or on request.</summary>
     public WhoisInfo? Whois { get; set; }
@@ -175,7 +177,7 @@ public sealed class CronJob
     };
 }
 
-/// <summary>A DNAT rule: traffic to ListenPort on this server goes to TargetIp:TargetPort.</summary>
+/// <summary>A DNAT or relay forward from this server to another endpoint.</summary>
 public sealed class PortForward
 {
     public const string CommentPrefix = "sshm:";
@@ -183,6 +185,9 @@ public sealed class PortForward
     public string Protocol { get; set; } = "tcp";
     /// <summary>Port or range ("1000:2000").</summary>
     public string ListenPort { get; set; } = "";
+    /// <summary>Explicit bind address for a cross-family relay. Legacy DNAT rules have no bind address.</summary>
+    public string? ListenIp { get; set; }
+    public string? RelayId { get; set; }
     public string TargetIp { get; set; } = "";
     public string TargetPort { get; set; } = "";
     public string? InInterface { get; set; }
@@ -191,9 +196,13 @@ public sealed class PortForward
     public string? Rule { get; set; }
 
     /// <summary>Created by Quaykeep (tagged with an "sshm:&lt;id&gt;" comment).</summary>
-    public bool Managed => Comment?.StartsWith(CommentPrefix, StringComparison.Ordinal) == true;
-    public string? ManagedId => Managed ? Comment![CommentPrefix.Length..] : null;
+    public bool Managed => RelayId != null || Comment?.StartsWith(CommentPrefix, StringComparison.Ordinal) == true;
+    public string? ManagedId => Comment?.StartsWith(CommentPrefix, StringComparison.Ordinal) == true ? Comment[CommentPrefix.Length..] : null;
+    public bool IsRelay => ListenIp != null;
 
     public string EffectiveTargetPort => string.IsNullOrEmpty(TargetPort) ? ListenPort : TargetPort;
-    public string Key => $"{Protocol}/{ListenPort}>{TargetIp}:{EffectiveTargetPort}";
+    public string ListenEndpoint => ListenIp == null ? ListenPort : Endpoint(ListenIp, ListenPort);
+    public static string Endpoint(string address, string port) => address.Contains(':') ? $"[{address}]:{port}" : $"{address}:{port}";
+    public string Key => IsRelay ? $"{Protocol}/{ListenIp}/{ListenPort}>{TargetIp}:{EffectiveTargetPort}" :
+        $"{Protocol}/{ListenPort}>{TargetIp}:{EffectiveTargetPort}";
 }

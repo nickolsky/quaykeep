@@ -114,7 +114,7 @@ public partial class AddressChangeWindow : Window
                     {
                         Append(L.F("Addr.UpdatingForward", i.ForwardServer!.Name, f.ListenPort, _new));
                         if (f.Protocol is not ("tcp" or "udp")) throw new InvalidOperationException(L.Get("Fwd.BadProtocol"));
-                        _host.Forwards.Replace(i.ForwardServer, f, [f.Protocol], f.ListenPort, _new, f.TargetPort, Append);
+                        _host.Forwards.Replace(i.ForwardServer, f, [f.Protocol], f.ListenPort, _new, f.TargetPort, Append, f.ListenIp);
                     }
                     catch (Exception ex)
                     {

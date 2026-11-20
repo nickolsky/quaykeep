@@ -1,12 +1,17 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Quaykeep.Views"
         xmlns:l="using:Quaykeep.Localization"
         x:Class="Quaykeep.Views.PortForwardWindow"
         Title="{l:Tr Fwd.Title}" Width="1120" Height="620" MinWidth="700" MinHeight="460"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Grid Margin="20,14,20,18" RowDefinitions="Auto,Auto,*,Auto,120,Auto">
-        <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
-        <TextBlock Grid.Row="1" Classes="hint" Text="{l:Tr Fwd.Hint}" Margin="0,6,0,10" />
+        <StackPanel>
+            <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <v:PublicIpSummary x:Name="PublicIpsText" TextWrapping="Wrap" Margin="0,4,0,0"
+                               ToolTip.Tip="{l:Tr PublicIp.SshHint}" />
+        </StackPanel>
+        <TextBlock Grid.Row="1" Classes="hint" Text="{l:Tr Fwd.Hint}" TextWrapping="Wrap" Margin="0,6,0,10" />
 
         <DataGrid Grid.Row="2" x:Name="ForwardsGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
                   HeadersVisibility="Column" GridLinesVisibility="None">
@@ -20,7 +25,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="{l:Tr Fwd.Protocol}" Binding="{Binding Protocol}" Width="80" />
-                <DataGridTextColumn Header="{l:Tr Fwd.ListenPort}" Binding="{Binding ListenPort}" Width="100" />
+                <DataGridTextColumn Header="{l:Tr Fwd.ListenEndpoint}" Binding="{Binding ListenPort}" Width="165" />
                 <DataGridTextColumn Header="{l:Tr Fwd.Target}" Binding="{Binding Target}" Width="200" />
                 <DataGridTemplateColumn Header="{l:Tr Fwd.Chain}" Width="*">
                     <DataGridTemplateColumn.CellTemplate>
@@ -39,6 +44,10 @@
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
             <StackPanel>
                 <TextBlock x:Name="FormTitle" Text="{l:Tr Fwd.AddTitle}" FontWeight="SemiBold" />
+                <StackPanel Margin="0,6,0,0" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{l:Tr Fwd.ListenIp}" VerticalAlignment="Center" />
+                    <ComboBox x:Name="ListenIpBox" IsEditable="True" MinWidth="195" ToolTip.Tip="{l:Tr Fwd.ListenIpTip}" />
+                </StackPanel>
                 <Grid Margin="0,6,0,0" ColumnDefinitions="110,10,100,10,*,10,100,10,Auto">
                     <StackPanel>
                         <TextBlock Classes="fieldLabel" Text="{l:Tr Fwd.Protocol}" Margin="0,0,0,4" />
@@ -54,7 +63,13 @@
                     </StackPanel>
                     <StackPanel Grid.Column="4">
                         <TextBlock Classes="fieldLabel" Text="{l:Tr Fwd.TargetServer}" Margin="0,0,0,4" />
-                        <ComboBox x:Name="TargetBox" IsEditable="True" HorizontalAlignment="Stretch" ToolTip.Tip="{l:Tr Fwd.TargetTip}" />
+                        <ComboBox x:Name="TargetBox" IsEditable="True" HorizontalAlignment="Stretch" ToolTip.Tip="{l:Tr Fwd.TargetTip}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Label}" ToolTip.Tip="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </StackPanel>
                     <StackPanel Grid.Column="6">
                         <TextBlock Classes="fieldLabel" Text="{l:Tr Fwd.TargetPort}" Margin="0,0,0,4" />

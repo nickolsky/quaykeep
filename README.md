@@ -92,6 +92,15 @@ On first start the program asks you to choose a master password and offers to st
   through DNS from this PC for a name), password (marked so that clipboard histories skip it on Windows, macOS and KDE,
   and cleared from the clipboard after 30 seconds), public key, ssh command, and `http://` / `https://` addresses when port 80 / 443 / 8080 / 8443 is open
   on the server.
+- **Public IP addresses** in the server editor show the server's outbound IPv4 and IPv6 separately from its SSH host.
+  Autodetection is on by default and checks every 1440 minutes (one day), with a minimum of one minute. While the vault
+  is unlocked, Quaykeep uses trusted SSH and runs up to two sequential HTTPS requests from the server with `curl` and
+  [ipify](https://www.ipify.org/). Direct SSH and SSH over SSM are supported without custom SSH arguments. Detected
+  fields are read-only. Turn detection off to enter either address manually. When a previously observed address changes,
+  Quaykeep shows a tray notification. The **Copy** menu, **Port forwards**, **Firewall**, and the map's link editor show the
+  available addresses. These addresses describe outbound traffic, so inbound SSH endpoints and listener addresses may differ.
+  **Refresh now** checks one saved server immediately, reports lookup failures by address family, and reads the server's
+  local interface addresses separately from its saved SSH endpoint.
 - **Ping…**: ICMP ping from this PC once a second in its own window: time, TTL, loss, min / avg / max. Many VPN servers drop
   ICMP, so monitoring does not use it; when there are no replies, the window shows the state of the SSH port instead.
 - **Traceroute…**: the route hop by hop, from this PC to the server (like `tracert`; on macOS / Linux through the system
@@ -154,6 +163,9 @@ On first start the program asks you to choose a master password and offers to st
 - **Port forwards (iptables)**: "Port forwards…" shows the existing DNAT rules and adds new ones
   (`443 → another server:443`, tcp/udp, ranges): DNAT + MASQUERADE + FORWARD, `ip_forward`, saved with
   netfilter-persistent / iptables-save (offers to install iptables-persistent when needed).
+- **IPv4 ↔ IPv6 port forwards**: enter a **Listen IP** in **Port forwards** or when drawing a link on the network map. Use `0.0.0.0` or `::` to listen on all addresses of one family. Choose TCP, UDP, or both, and a single port at each end. The forwarding server needs systemd, Python 3.8+, and a route to the destination. Relays start on boot, and inbound traffic follows the server’s INPUT firewall. The destination sees the relay’s IP as the source. The existing TCP port monitor cannot verify traffic beyond the relay listener.
+  The listen dropdown offers the forwarding server’s known interface addresses and both wildcards. The target dropdown offers known IPv4 and IPv6 addresses with their sources. Both fields also accept typed addresses. Choose a target reachable from the forwarding server.
+  Saving an edit can switch between DNAT and a cross-family relay. Quaykeep sets up the replacement before removing the old forward.
   Forwards are shown in the main tree, both outgoing and incoming.
 - **Tunnels** ("Tunnels…" in the server menu): ports on **this PC** that lead through the server, kept per server.
   - **Port → address** (`ssh -N -L 5432:10.0.1.20:5432`), a **SOCKS proxy** (`ssh -N -D 1080`, SOCKS4/5), and for AWS SSM

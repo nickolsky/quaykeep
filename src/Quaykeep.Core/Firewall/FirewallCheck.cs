@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using Quaykeep.Core.Forwarding;
 using Quaykeep.Core.Models;
 
@@ -49,20 +50,22 @@ public static class FirewallCheck
     }
 
     /// <summary>Who may connect to the port from anywhere (for the first server of a route).</summary>
-    public static PortAccess Access(FirewallConfig config, string protocol, string port)
+    public static PortAccess Access(FirewallConfig config, string protocol, string port, AddressFamily? family = null)
     {
         var rules = config.Rules.Where(r => r.Enabled && Affects(r, protocol, port)).ToList();
-        var blocked = rules.Where(r => r.Action == FirewallAction.Block).SelectMany(r => r.Sources).ToList();
+        bool SameFamily(string source) => family == null ||
+            FirewallRules.TryNetwork(source, out var network) && network.BaseAddress.AddressFamily == family;
+        var blocked = rules.Where(r => r.Action == FirewallAction.Block).SelectMany(r => r.Sources).Where(SameFamily).ToList();
         var allow = rules.FirstOrDefault(r => r.Action == FirewallAction.AllowOnly && !r.WholeServer);
         var whole = rules.Where(r => r.Action == FirewallAction.AllowOnly && r.WholeServer).ToList();
         if (allow != null || whole.Count > 0)
         {
-            var sources = allow != null ? allow.Sources : whole.SelectMany(r => r.Sources).ToList();
+            var sources = (allow != null ? allow.Sources : whole.SelectMany(r => r.Sources)).Where(SameFamily);
             if (sources.Any(IsEveryone) && blocked.Count == 0) return new PortAccess(AccessKind.Everyone, [], null); // "+ everyone"
             return new PortAccess(AccessKind.Only, sources.Where(s => !blocked.Contains(s)).Distinct().ToList(), allow ?? whole[0]);
         }
         return blocked.Count > 0
-            ? new PortAccess(AccessKind.Except, blocked.Distinct().ToList(), rules.First(r => r.Action == FirewallAction.Block))
+            ? new PortAccess(AccessKind.Except, blocked.Distinct().ToList(), rules.First(r => r.Action == FirewallAction.Block && r.Sources.Any(SameFamily)))
             : new PortAccess(AccessKind.Everyone, [], null);
     }
 

@@ -14,6 +14,14 @@ dotnet test tests\Quaykeep.Tests
 
 ## 2. Тестовый стенд: Ubuntu, Debian и CentOS в Docker Desktop
 
+Проверка ретрансляторов IPv4 ↔ IPv6 использует уже собранный образ `script-lab-rocky` и запускает по одному контейнеру без внешней сети (`--network none --pull never`). Запуск из корня репозитория:
+
+```powershell
+$env:SSHM_RELAY_DOCKER = '1'
+dotnet test tests\Quaykeep.Tests --no-restore --filter 'FullyQualifiedName~RelayTests'
+Remove-Item Env:SSHM_RELAY_DOCKER
+```
+
 Каждый «сервер» здесь — контейнер с systemd, sshd, sudo и **своим** Docker внутри, почти как чистый VPS.
 Скрипты ставят Docker, nginx и сервисы по-настоящему. Нужен Docker Desktop (Linux-контейнеры).
 

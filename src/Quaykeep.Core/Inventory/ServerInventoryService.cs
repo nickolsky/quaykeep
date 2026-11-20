@@ -16,7 +16,7 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
     public static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan RetryAfterError = TimeSpan.FromMinutes(2);
 
-    private const string Script = """
+    private static readonly string Script = """
         echo '@@sshm:os'; cat /etc/os-release 2>/dev/null || cat /usr/lib/os-release 2>/dev/null
         echo '@@sshm:kernel'; uname -srm 2>/dev/null
         if command -v docker >/dev/null 2>&1; then echo '@@sshm:docker'; docker ps -a --format '{{json .}}' 2>&1
@@ -28,7 +28,7 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
         if command -v iptables >/dev/null 2>&1; then echo '@@sshm:fw'; iptables -S INPUT 2>&1; iptables -S QK-IN 2>/dev/null; fi
         echo '@@sshm:ports'; ss -Htlnp 2>/dev/null || ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null
         if command -v ip >/dev/null 2>&1; then echo '@@sshm:addr'; ip -o addr show 2>/dev/null; fi
-        """ + "\n" + CronCollector.Script + "\necho '@@sshm:end'";
+        """ + "\n" + RelayCommands.Read + "\n" + CronCollector.Script + "\necho '@@sshm:end'";
 
     private readonly SemaphoreSlim _gate = new(4);
     private readonly ConcurrentDictionary<Guid, Task> _running = new();
@@ -131,7 +131,15 @@ public sealed class ServerInventoryService(VaultService vault, SshClientFactory 
 
         // "-P PREROUTING ACCEPT" is always printed when we could read the table (i.e. we were root)
         if (sections.TryGetValue("nat", out var nat) && nat.Contains("-P PREROUTING", StringComparison.Ordinal))
-            f.Forwards = IptablesParser.ParseNat(nat);
+        {
+            f.Forwards.RemoveAll(x => !x.IsRelay);
+            f.Forwards.InsertRange(0, IptablesParser.ParseNat(nat));
+        }
+        if (sections.TryGetValue(RelayCommands.Section, out var relays))
+        {
+            f.Forwards.RemoveAll(x => x.IsRelay);
+            f.Forwards.AddRange(RelayCommands.Parse(relays));
+        }
         if (sections.TryGetValue(FirewallRules.Section, out var fw) && FirewallRules.ParseState(fw) is { } state) f.Firewall = state;
 
         if (sections.TryGetValue("ports", out var ports)) f.ListeningPorts = ListeningPortParser.Parse(ports);

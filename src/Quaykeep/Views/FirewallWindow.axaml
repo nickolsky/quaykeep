@@ -5,7 +5,13 @@
         x:Class="Quaykeep.Views.FirewallWindow"
         Width="1180" Height="760" MinWidth="820" MinHeight="560">
     <Grid Margin="20,14,20,18" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,100,Auto">
-        <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <StackPanel>
+            <TextBlock x:Name="Header" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <ScrollViewer MaxHeight="96" IsVisible="{Binding #PublicIpsText.IsVisible}" VerticalScrollBarVisibility="Auto">
+                <v:PublicIpSummary x:Name="PublicIpsText" IsVisible="False" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   ToolTip.Tip="{l:Tr PublicIp.SshHint}" />
+            </ScrollViewer>
+        </StackPanel>
         <TextBlock x:Name="HintText" Grid.Row="1" Classes="hint" Text="{l:Tr Fw.Hint}" Margin="0,6,0,8" />
         <StackPanel Grid.Row="2" Margin="0,0,0,8">
             <TextBlock x:Name="StateText" FontWeight="SemiBold" TextWrapping="Wrap" />

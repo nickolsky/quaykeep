@@ -85,4 +85,24 @@ public class ForwardChainTests
         Bash.CheckSyntax(s);
         Bash.CheckSyntax(e);
     }
+
+    [Fact]
+    public void Switching_backends_stages_the_replacement_before_removing_the_original()
+    {
+        var dnat = IptablesParser.ParseNat("-A PREROUTING -p tcp --dport 443 -m comment --comment sshm:0a1b2c3d -j DNAT --to-destination 192.0.2.2:443")[0];
+        var relay = RelayCommands.Validate("tcp", "0.0.0.0", "443", "2001:db8::2", "443");
+        var toRelay = ForwardConversion.Script(dnat, [relay]);
+        Assert.NotNull(relay.RelayId);
+        Assert.Contains($"{relay.RelayId} tcp 0.0.0.0 443 2001:db8::2 443", toRelay);
+        Assert.Contains("saved_nat=$(iptables -t nat -S)", toRelay);
+        Assert.Contains($"old='{relay.RelayId}'", toRelay);
+        Assert.True(toRelay.IndexOf("action=apply", StringComparison.Ordinal) < toRelay.IndexOf("saved_nat=", StringComparison.Ordinal));
+        Bash.CheckSyntax(toRelay, posix: true);
+
+        var toDnat = ForwardConversion.Script(relay, [dnat]);
+        Assert.True(toDnat.IndexOf("-A PREROUTING", StringComparison.Ordinal) < toDnat.LastIndexOf("action=remove", StringComparison.Ordinal));
+        Assert.Contains("trap rollback EXIT", toDnat);
+        Assert.Contains($"old='{relay.RelayId}'", toDnat);
+        Bash.CheckSyntax(toDnat, posix: true);
+    }
 }
